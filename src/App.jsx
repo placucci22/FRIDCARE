@@ -1,0 +1,1356 @@
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import {
+  Dumbbell, Calendar, MessageSquare, User, Activity,
+  ChevronRight, Plus, Clock, Check, X, FileText,
+  Settings, LogOut, TrendingUp, Users, Play, Pause,
+  ChevronDown, Search, Upload, Lock, Phone, Mail, ShieldAlert,
+  ToggleLeft, Menu, ArrowLeft
+} from 'lucide-react';
+import { initializeApp } from 'firebase/app';
+import {
+  getAuth, signInWithCustomToken, signInAnonymously,
+  onAuthStateChanged, signOut, createUserWithEmailAndPassword,
+  signInWithEmailAndPassword, updateProfile
+} from 'firebase/auth';
+import {
+  getFirestore, collection, doc, setDoc, getDoc,
+  onSnapshot, addDoc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, where
+} from 'firebase/firestore';
+
+// --- Firebase Initialization ---
+// Safe initialization for local dev
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+  apiKey: "demo", authDomain: "demo", projectId: "demo"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'health-hub-v1';
+
+// --- Configuration ---
+const BYPASS_AUTH = true; // Set to false to enable real Login page
+
+// --- Design System Constants (Enhanced for Personality) ---
+const COLORS = {
+  bg: 'bg-slate-50',
+  primaryGradient: 'bg-gradient-to-r from-indigo-600 to-blue-500',
+  primaryHover: 'hover:opacity-90',
+  textMain: 'text-slate-900',
+  textSub: 'text-slate-500',
+  card: 'bg-white',
+  border: 'border-slate-200',
+  accent: 'text-indigo-600'
+};
+
+const STYLES = {
+  card: `${COLORS.card} rounded-3xl shadow-lg shadow-slate-200/50 border ${COLORS.border} overflow-hidden transition-all hover:shadow-xl`,
+  cardPadding: 'p-4 md:p-6',
+  btnPrimary: `${COLORS.primaryGradient} ${COLORS.primaryHover} text-white font-bold px-6 py-3 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 shadow-md shadow-indigo-200 active:scale-95`,
+  btnSecondary: `bg-white border-2 border-slate-200 text-slate-700 hover:border-indigo-300 hover:text-indigo-600 font-bold px-6 py-3 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 active:scale-95`,
+  input: `w-full px-5 py-3 rounded-xl border ${COLORS.border} focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all bg-slate-50 focus:bg-white font-medium`,
+  label: `block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide`,
+  h1: `text-2xl md:text-3xl font-extrabold ${COLORS.textMain} tracking-tight`,
+  h2: `text-lg md:text-xl font-bold ${COLORS.textMain}`,
+};
+
+// --- Helper Functions ---
+const generateId = () => Math.random().toString(36).substr(2, 9);
+const formatDate = (date) => new Date(date?.seconds * 1000 || Date.now()).toLocaleDateString('pt-BR');
+
+// --- Mock Data for Bypass Mode ---
+const MOCK_USERS = {
+  patient: {
+    uid: 'mock-patient-1',
+    name: 'Leonardo Neto',
+    email: 'leo@plucucci.com.br',
+    role: 'patient',
+    plan: 'free',
+    status: 'active'
+  },
+  professional: {
+    uid: 'mock-pro-1',
+    name: 'Dr. Fridman',
+    email: 'dr@fridman.com',
+    role: 'professional',
+    plan: 'professional_tier',
+    status: 'active'
+  },
+  admin: {
+    uid: 'mock-admin-1',
+    name: 'Admin User',
+    email: 'admin@fridman.com',
+    role: 'admin',
+    plan: 'admin_tier',
+    status: 'active'
+  }
+};
+
+// --- Components ---
+
+// 1. Authentication & Onboarding
+const AuthScreen = ({ onLogin }) => {
+  const [isLogin, setIsLogin] = useState(true);
+  const [role, setRole] = useState('patient');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      let userCredential;
+      if (isLogin) {
+        userCredential = await signInWithEmailAndPassword(auth, email, password);
+      } else {
+        userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(userCredential.user, { displayName: name });
+
+        const userData = {
+          uid: userCredential.user.uid,
+          name,
+          email,
+          role,
+          plan: role === 'patient' ? 'free' : (role === 'admin' ? 'admin_tier' : 'professional_tier'),
+          status: role === 'professional' ? 'pending' : 'active',
+          createdAt: serverTimestamp(),
+        };
+
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', userCredential.user.uid), userData);
+      }
+    } catch (err) {
+      let msg = "Ocorreu um erro.";
+      if (err.message.includes("auth/wrong-password")) msg = "Senha incorreta.";
+      if (err.message.includes("auth/user-not-found")) msg = "Usuário não encontrado.";
+      if (err.message.includes("auth/email-already-in-use")) msg = "Este email já está em uso.";
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4 font-sans">
+      <div className={`${STYLES.card} w-full max-w-md p-6 md:p-10 border-t-8 border-t-indigo-600`}>
+        <div className="text-center mb-10">
+          <div className="w-20 h-20 bg-gradient-to-tr from-indigo-600 to-cyan-500 rounded-3xl flex items-center justify-center mx-auto mb-5 text-white shadow-lg shadow-indigo-300 transform -rotate-6">
+            <Activity size={40} />
+          </div>
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Fridman Care</h1>
+          <p className="text-slate-500 mt-2 font-medium">Excelência em Saúde e Performance</p>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 text-red-600 p-4 rounded-xl mb-6 text-sm flex items-center gap-3 font-semibold border border-red-100">
+            <ShieldAlert size={20} /> {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {!isLogin && (
+            <div>
+              <label className={STYLES.label}>Nome Completo</label>
+              <input
+                required
+                type="text"
+                className={STYLES.input}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Ex: Ana Silva"
+              />
+            </div>
+          )}
+
+          <div>
+            <label className={STYLES.label}>Email</label>
+            <input
+              required
+              type="email"
+              className={STYLES.input}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="voce@exemplo.com"
+            />
+          </div>
+
+          <div>
+            <label className={STYLES.label}>Senha</label>
+            <input
+              required
+              type="password"
+              className={STYLES.input}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+            />
+          </div>
+
+          {!isLogin && (
+            <div className="space-y-2">
+              <label className={STYLES.label}>Eu sou:</label>
+              <div className="grid grid-cols-3 gap-2">
+                {['patient', 'professional', 'admin'].map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setRole(r)}
+                    className={`p-3 rounded-xl border-2 text-center transition-all font-bold text-sm ${role === r
+                      ? 'bg-indigo-50 border-indigo-600 text-indigo-700'
+                      : 'border-slate-200 text-slate-400 hover:bg-slate-50'
+                      }`}
+                  >
+                    {r === 'patient' ? 'Paciente' : r === 'professional' ? 'Profissional' : 'Admin'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className={`${STYLES.btnPrimary} w-full mt-8 text-lg`}
+          >
+            {loading ? 'Processando...' : (isLogin ? 'Entrar no Sistema' : 'Criar Conta')}
+          </button>
+        </form>
+
+        <div className="mt-8 text-center">
+          <button
+            onClick={() => setIsLogin(!isLogin)}
+            className="text-sm text-indigo-600 hover:text-indigo-800 font-bold transition-colors"
+          >
+            {isLogin ? "Novo na Fridman Care? Crie sua conta" : "Já tem conta? Faça login"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ... REST_OF_APP ... 
+// 2. Active Workout
+const ActiveWorkout = ({ workout, onClose, onFinish }) => {
+  const [startTime] = useState(Date.now());
+  const [duration, setDuration] = useState(0);
+  const [exercises, setExercises] = useState(
+    workout.exercises.map(ex => ({
+      ...ex,
+      sets: ex.sets.map((s, i) => ({
+        id: i,
+        reps: s.reps,
+        weight: s.weight,
+        completed: false,
+        type: 'normal'
+      }))
+    }))
+  );
+  const [restTimer, setRestTimer] = useState(null);
+  const [showRest, setShowRest] = useState(false);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDuration(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [startTime]);
+
+  useEffect(() => {
+    let interval;
+    if (restTimer > 0) {
+      interval = setInterval(() => setRestTimer(t => t - 1), 1000);
+    } else if (restTimer === 0) {
+      setShowRest(false);
+      setRestTimer(null);
+    }
+    return () => clearInterval(interval);
+  }, [restTimer]);
+
+  const toggleSet = (exIndex, setIndex) => {
+    const newEx = [...exercises];
+    const set = newEx[exIndex].sets[setIndex];
+    set.completed = !set.completed;
+    setExercises(newEx);
+
+    if (set.completed) {
+      setRestTimer(60);
+      setShowRest(true);
+    }
+  };
+
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
+  const finishSession = () => {
+    const logData = {
+      workoutId: workout.id,
+      title: workout.title,
+      duration,
+      date: serverTimestamp(),
+      exercises: exercises.map(e => ({
+        name: e.name,
+        sets: e.sets.filter(s => s.completed)
+      })),
+      totalVolume: exercises.reduce((acc, ex) =>
+        acc + ex.sets.filter(s => s.completed).reduce((sAcc, s) => sAcc + (s.weight * s.reps), 0)
+        , 0)
+    };
+    onFinish(logData);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-white z-50 flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-300">
+      <div className="px-4 md:px-6 py-4 border-b flex items-center justify-between bg-white shadow-sm z-10">
+        <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+          <ChevronDown className="text-slate-600" />
+        </button>
+        <div className="text-center">
+          <h2 className="font-extrabold text-slate-900 text-base md:text-lg">{workout.title}</h2>
+          <div className="flex items-center justify-center gap-2 text-indigo-600 font-mono font-bold text-sm bg-indigo-50 px-3 py-1 rounded-full mt-1">
+            <Clock size={14} /> {formatTime(duration)}
+          </div>
+        </div>
+        <button
+          onClick={finishSession}
+          className="bg-indigo-600 text-white px-4 md:px-5 py-2 rounded-full text-sm font-bold hover:bg-indigo-700 shadow-md shadow-indigo-200 transition-all"
+        >
+          Finalizar
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto bg-slate-50 pb-32 p-4 space-y-4">
+        {exercises.map((ex, exIdx) => (
+          <div key={exIdx} className="bg-white rounded-2xl p-4 md:p-5 shadow-sm border border-slate-100">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600 font-bold text-xl shadow-inner flex-shrink-0">
+                {ex.name[0]}
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 text-lg leading-tight">{ex.name}</h3>
+                <p className="text-xs text-slate-500 font-medium bg-slate-100 inline-block px-2 py-1 rounded mt-1">Descanso: 60s</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-10 gap-2 mb-3 text-xs font-bold text-slate-400 uppercase tracking-wider text-center">
+              <div className="col-span-1">#</div>
+              <div className="col-span-3">Carga</div>
+              <div className="col-span-3">Reps</div>
+              <div className="col-span-3">Status</div>
+            </div>
+
+            <div className="space-y-2">
+              {ex.sets.map((set, setIdx) => (
+                <div key={setIdx} className={`grid grid-cols-10 gap-2 md:gap-3 items-center transition-all ${set.completed ? 'opacity-40' : ''}`}>
+                  <div className="col-span-1 flex justify-center">
+                    <span className="w-6 h-6 bg-slate-100 rounded-full flex items-center justify-center text-xs font-bold text-slate-500">
+                      {setIdx + 1}
+                    </span>
+                  </div>
+                  <div className="col-span-3">
+                    <input
+                      type="number"
+                      className="w-full bg-slate-50 border-2 border-slate-200 focus:border-indigo-500 rounded-lg p-2 text-center font-mono font-bold text-slate-700 outline-none transition-colors"
+                      defaultValue={set.weight}
+                      onBlur={(e) => {
+                        const newEx = [...exercises];
+                        newEx[exIdx].sets[setIdx].weight = Number(e.target.value);
+                        setExercises(newEx);
+                      }}
+                    />
+                  </div>
+                  <div className="col-span-3">
+                    <input
+                      type="number"
+                      className="w-full bg-slate-50 border-2 border-slate-200 focus:border-indigo-500 rounded-lg p-2 text-center font-mono font-bold text-slate-700 outline-none transition-colors"
+                      defaultValue={set.reps}
+                      onBlur={(e) => {
+                        const newEx = [...exercises];
+                        newEx[exIdx].sets[setIdx].reps = Number(e.target.value);
+                        setExercises(newEx);
+                      }}
+                    />
+                  </div>
+                  <div className="col-span-3 flex justify-center">
+                    <button
+                      onClick={() => toggleSet(exIdx, setIdx)}
+                      className={`w-full h-10 rounded-xl flex items-center justify-center transition-all duration-300 shadow-sm ${set.completed ? 'bg-green-500 text-white shadow-green-200 scale-95' : 'bg-slate-100 text-slate-400 hover:bg-green-100 hover:text-green-600'}`}
+                    >
+                      <Check size={20} strokeWidth={3} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {showRest && (
+        <div className="fixed bottom-6 left-4 right-4 md:left-auto md:right-8 md:w-96 bg-slate-900/95 backdrop-blur-md text-white p-5 rounded-2xl shadow-2xl flex items-center justify-between z-50 animate-in slide-in-from-bottom-10 border border-slate-700">
+          <div>
+            <span className="text-xs text-slate-400 uppercase tracking-wider font-bold">Descansando</span>
+            <div className="text-3xl font-mono font-bold text-indigo-400">{formatTime(restTimer)}</div>
+          </div>
+          <div className="flex gap-3">
+            <button onClick={() => setRestTimer(t => t + 30)} className="bg-slate-800 hover:bg-slate-700 border border-slate-600 px-4 py-2 rounded-xl text-sm font-bold transition-colors">+30s</button>
+            <button onClick={() => { setShowRest(false); setRestTimer(null); }} className="bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 px-4 py-2 rounded-xl text-sm font-bold transition-colors">Pular</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// 3. Chat System
+const ChatSystem = ({ currentUser, targetId, users }) => {
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  const messagesEndRef = useRef(null);
+
+  useEffect(() => {
+    if (!currentUser || !targetId) return;
+    const chatId = [currentUser.uid, targetId].sort().join('_');
+    const q = query(
+      collection(db, 'artifacts', appId, 'public', 'data', 'messages', chatId, 'logs'),
+      orderBy('timestamp', 'asc')
+    );
+    const unsub = onSnapshot(q, (snapshot) => {
+      setMessages(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (err) => console.log("Chat error (expected if no access):", err));
+    return () => unsub();
+  }, [currentUser, targetId]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const sendMessage = async (e) => {
+    e.preventDefault();
+    if (!newMessage.trim()) return;
+    const chatId = [currentUser.uid, targetId].sort().join('_');
+    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'messages', chatId, 'logs'), {
+      text: newMessage,
+      senderId: currentUser.uid,
+      timestamp: serverTimestamp()
+    });
+    setNewMessage('');
+  };
+
+  const targetUser = users.find(u => u.uid === targetId);
+
+  return (
+    <div className="flex flex-col h-full bg-slate-50 rounded-3xl overflow-hidden border border-slate-200 shadow-sm">
+      <div className="bg-white p-4 border-b flex items-center gap-3 shadow-sm">
+        <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold shadow-md">
+          {targetUser?.name?.[0] || '?'}
+        </div>
+        <div>
+          <h3 className="font-bold text-slate-900">{targetUser?.name || 'Usuário'}</h3>
+          <span className="text-xs text-green-600 flex items-center gap-1 font-medium">
+            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> Online
+          </span>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50">
+        {messages.map((msg) => (
+          <div key={msg.id} className={`flex ${msg.senderId === currentUser.uid ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[75%] px-5 py-3 rounded-2xl text-sm shadow-sm font-medium ${msg.senderId === currentUser.uid
+              ? 'bg-indigo-600 text-white rounded-br-sm'
+              : 'bg-white text-slate-800 rounded-bl-sm border border-slate-100'
+              }`}>
+              {msg.text}
+            </div>
+          </div>
+        ))}
+        <div ref={messagesEndRef} />
+      </div>
+
+      <form onSubmit={sendMessage} className="p-4 bg-white border-t flex gap-3">
+        <input
+          type="text"
+          className="flex-1 bg-slate-100 border-0 rounded-full px-5 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-medium text-slate-700 placeholder:text-slate-400"
+          placeholder="Digite sua mensagem..."
+          value={newMessage}
+          onChange={(e) => setNewMessage(e.target.value)}
+        />
+        <button type="submit" className="bg-indigo-600 text-white p-3 rounded-full hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-transform active:scale-90">
+          <ChevronRight size={20} strokeWidth={3} />
+        </button>
+      </form>
+    </div>
+  );
+};
+
+// --- ROLE TOGGLE (For Development) ---
+const DevRoleSwitcher = ({ onSwitch, currentRole }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="fixed bottom-24 right-4 md:bottom-8 md:right-8 z-50">
+      <div className={`bg-white rounded-2xl shadow-2xl border border-slate-200 p-2 mb-2 space-y-2 transition-all origin-bottom-right ${isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 hidden'}`}>
+        {Object.values(MOCK_USERS).map(u => (
+          <button
+            key={u.role}
+            onClick={() => { onSwitch(u.role); setIsOpen(false); }}
+            className={`block w-full text-left px-4 py-2 rounded-xl text-sm font-bold ${currentRole === u.role ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-slate-50 text-slate-600'}`}
+          >
+            {u.role === 'patient' ? 'Paciente' : u.role === 'professional' ? 'Profissional' : 'Admin'}
+          </button>
+        ))}
+      </div>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="bg-slate-900 text-white p-4 rounded-full shadow-xl hover:bg-indigo-600 transition-colors"
+        title="Alternar Papel (Modo Dev)"
+      >
+        <Settings size={24} className={isOpen ? "animate-spin" : ""} />
+      </button>
+    </div>
+  );
+};
+
+// --- MAIN APP COMPONENT ---
+export default function HealthHub() {
+  const [user, setUser] = useState(null);
+  const [userData, setUserData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [activeWorkout, setActiveWorkout] = useState(null);
+  const [allUsers, setAllUsers] = useState([]);
+  const [activeRole, setActiveRole] = useState('patient');
+
+  // Data States
+  const [workouts, setWorkouts] = useState([]);
+  const [appointments, setAppointments] = useState([]);
+  const [selectedChatUser, setSelectedChatUser] = useState(null);
+  const [myLogs, setMyLogs] = useState([]);
+
+  // --- Auth & Data Loading ---
+  useEffect(() => {
+    const initAuth = async () => {
+      if (!auth.currentUser) {
+        try {
+          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            await signInWithCustomToken(auth, __initial_auth_token);
+          } else {
+            await signInAnonymously(auth);
+          }
+        } catch (err) {
+          console.error("Firebase auth failed:", err);
+        }
+      }
+
+      if (BYPASS_AUTH) {
+        const mockUser = MOCK_USERS[activeRole];
+        setUser({ uid: mockUser.uid });
+        setUserData(mockUser);
+        setLoading(false);
+        return;
+      }
+    };
+
+    initAuth();
+
+    if (!BYPASS_AUTH) {
+      const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+        setUser(currentUser);
+        if (currentUser) {
+          const userDoc = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', currentUser.uid));
+          if (userDoc.exists()) {
+            setUserData(userDoc.data());
+          }
+          setLoading(false);
+        } else {
+          setUserData(null);
+          setLoading(false);
+        }
+      });
+      return () => unsubscribe();
+    }
+  }, [activeRole]);
+
+  // Handle Role Switch
+  const switchRole = (newRole) => {
+    setLoading(true);
+    setActiveRole(newRole);
+    setSelectedChatUser(null);
+  };
+
+  useEffect(() => {
+    if (!user || loading) return;
+
+    const unsubWorkouts = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'workouts'), (snap) => {
+      setWorkouts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (err) => console.log("Workout sync error:", err));
+
+    const unsubUsers = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'users'), (snap) => {
+      let realUsers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (BYPASS_AUTH) {
+        const mockVals = Object.values(MOCK_USERS);
+        mockVals.forEach(m => {
+          if (!realUsers.find(r => r.uid === m.uid)) {
+            realUsers.push({ ...m, id: m.uid });
+          }
+        });
+      }
+      setAllUsers(realUsers);
+    }, (err) => console.log("User sync error:", err));
+
+    const unsubAppts = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'appointments'), (snap) => {
+      setAppointments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (err) => console.log("Appt sync error:", err));
+
+    const unsubLogs = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'workout_logs'), (snap) => {
+      setMyLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(l => l.userId === user.uid));
+    }, (err) => console.log("Log sync error:", err));
+
+    return () => { unsubWorkouts(); unsubUsers(); unsubAppts(); unsubLogs(); };
+  }, [user, loading]);
+
+  // --- Actions ---
+  const handleLogout = () => {
+    if (BYPASS_AUTH) {
+      alert("No modo de demonstração, o logout apenas recarrega a página.");
+      window.location.reload();
+    } else {
+      signOut(auth);
+    }
+  };
+
+  const saveWorkoutLog = async (logData) => {
+    try {
+      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'workout_logs'), {
+        ...logData,
+        userId: user.uid,
+        userName: userData.name
+      });
+      setActiveWorkout(null);
+    } catch (e) {
+      console.error("Error saving log:", e);
+      alert("Erro ao salvar treino (permissão ou conexão).");
+    }
+  };
+
+  const createWorkout = async (workout) => {
+    try {
+      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'workouts'), {
+        ...workout,
+        createdBy: user.uid,
+        createdAt: serverTimestamp()
+      });
+    } catch (e) {
+      console.error("Error creating workout:", e);
+      alert("Erro ao criar treino.");
+    }
+  };
+
+  // --- VIEWS ---
+
+  // Admin
+  const AdminView = () => {
+    const pendingProfessionals = allUsers.filter(u => u.role === 'professional' && u.status === 'pending');
+    const approveUser = async (uid) => {
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', uid), { status: 'active' });
+    };
+
+    return (
+      <div className="min-h-screen bg-slate-100 p-4 md:p-8 font-sans">
+        <div className="max-w-5xl mx-auto space-y-6 md:space-y-8">
+          <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-3xl shadow-sm border border-slate-200 gap-4">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 flex items-center gap-3">
+                <ShieldAlert className="text-indigo-600" size={32} />
+                Painel Administrativo
+              </h1>
+              <p className="text-slate-500 font-medium mt-1">Bem-vindo, Administrador {userData.name}</p>
+            </div>
+            <button onClick={handleLogout} className="flex items-center gap-2 text-red-600 font-bold hover:bg-red-50 px-4 py-2 rounded-xl transition-colors">
+              <LogOut size={20} /> Sair
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className={`${STYLES.card} ${STYLES.cardPadding} border-l-8 border-l-indigo-500`}>
+              <h3 className="text-slate-500 font-bold uppercase text-xs">Total Usuários</h3>
+              <p className="text-4xl font-extrabold text-slate-900 mt-2">{allUsers.length}</p>
+            </div>
+            <div className={`${STYLES.card} ${STYLES.cardPadding} border-l-8 border-l-blue-500`}>
+              <h3 className="text-slate-500 font-bold uppercase text-xs">Profissionais</h3>
+              <p className="text-4xl font-extrabold text-slate-900 mt-2">{allUsers.filter(u => u.role === 'professional').length}</p>
+            </div>
+            <div className={`${STYLES.card} ${STYLES.cardPadding} border-l-8 border-l-green-500`}>
+              <h3 className="text-slate-500 font-bold uppercase text-xs">Treinos Ativos</h3>
+              <p className="text-4xl font-extrabold text-slate-900 mt-2">{workouts.length}</p>
+            </div>
+          </div>
+
+          <div>
+            <h2 className="text-xl font-bold text-slate-800 mb-4 px-2">Aprovações Pendentes</h2>
+            <div className={STYLES.card + ' overflow-x-auto'}>
+              {pendingProfessionals.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 font-medium">Nenhum profissional aguardando aprovação.</div>
+              ) : (
+                <table className="w-full text-left min-w-[600px]">
+                  <thead className="bg-slate-50 text-slate-500 uppercase text-xs font-bold">
+                    <tr>
+                      <th className="px-6 py-4">Nome</th>
+                      <th className="px-6 py-4">Email</th>
+                      <th className="px-6 py-4">Data Cadastro</th>
+                      <th className="px-6 py-4 text-right">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {pendingProfessionals.map(u => (
+                      <tr key={u.uid} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-6 py-4 font-bold text-slate-900">{u.name}</td>
+                        <td className="px-6 py-4 text-slate-600 font-medium">{u.email}</td>
+                        <td className="px-6 py-4 text-slate-500">{formatDate(u.createdAt)}</td>
+                        <td className="px-6 py-4 text-right">
+                          <button
+                            onClick={() => approveUser(u.uid)}
+                            className="bg-green-100 text-green-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-green-200 transition-colors"
+                          >
+                            Aprovar Acesso
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Professional
+  const ProfessionalView = () => {
+    const [activeTab, setActiveTab] = useState('dashboard');
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // Mobile Menu State
+
+    const myPatients = allUsers.filter(u => u.role === 'patient');
+    const todayAppts = appointments.filter(a => a.date === new Date().toISOString().split('T')[0]);
+
+    if (userData.status === 'pending') {
+      return (
+        <div className="h-screen flex flex-col items-center justify-center bg-slate-50 p-8 text-center">
+          <div className="w-24 h-24 bg-yellow-100 rounded-full flex items-center justify-center text-yellow-600 mb-6">
+            <Lock size={48} />
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900">Aguardando Aprovação</h1>
+          <p className="text-slate-600 mt-2 max-w-md">Sua conta de profissional foi criada e está em análise pelo administrador. Você receberá acesso em breve.</p>
+          <button onClick={handleLogout} className="mt-8 text-indigo-600 font-bold">Voltar ao Login</button>
+        </div>
+      );
+    }
+
+    const NavigationContent = () => (
+      <>
+        <div className="p-8 flex items-center gap-3 border-b border-slate-100">
+          <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-lg shadow-indigo-200"><Activity size={24} /></div>
+          <span className="font-extrabold text-xl tracking-tight text-slate-800">Fridman<span className="text-indigo-600">Pro</span></span>
+        </div>
+        <nav className="flex-1 p-6 space-y-2 overflow-y-auto">
+          {[
+            { id: 'dashboard', icon: TrendingUp, label: 'Painel Geral' },
+            { id: 'patients', icon: Users, label: 'Meus Pacientes' },
+            { id: 'workouts', icon: Dumbbell, label: 'Criador de Treinos' },
+            { id: 'schedule', icon: Calendar, label: 'Agenda' },
+            { id: 'messages', icon: MessageSquare, label: 'Mensagens' },
+          ].map(item => (
+            <button
+              key={item.id}
+              onClick={() => { setActiveTab(item.id); setIsMobileMenuOpen(false); }}
+              className={`w-full flex items-center gap-4 px-4 py-3.5 text-sm font-bold rounded-xl transition-all ${activeTab === item.id ? 'bg-indigo-50 text-indigo-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
+            >
+              <item.icon size={20} className={activeTab === item.id ? "text-indigo-600" : "text-slate-400"} /> {item.label}
+            </button>
+          ))}
+        </nav>
+        <div className="p-6 border-t border-slate-100 bg-slate-50/50">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center font-bold text-sm text-indigo-700 border-2 border-indigo-200">
+              {userData.name[0]}
+            </div>
+            <div className="text-sm overflow-hidden">
+              <p className="font-bold truncate text-slate-900">{userData.name}</p>
+              <p className="text-xs text-indigo-500 font-medium">Profissional</p>
+            </div>
+          </div>
+          <button onClick={handleLogout} className="flex items-center gap-2 text-sm text-red-500 font-bold hover:text-red-700 transition-colors w-full p-2 hover:bg-red-50 rounded-lg">
+            <LogOut size={16} /> Encerrar Sessão
+          </button>
+        </div>
+      </>
+    );
+
+    return (
+      <div className="flex h-screen bg-slate-100 font-sans text-slate-900">
+
+        {/* Desktop Sidebar */}
+        <div className="w-72 bg-white border-r border-slate-200 flex-col hidden md:flex shadow-xl z-10">
+          <NavigationContent />
+        </div>
+
+        {/* Mobile Sidebar Overlay */}
+        {isMobileMenuOpen && (
+          <div className="fixed inset-0 z-50 flex md:hidden">
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)}></div>
+            <div className="w-3/4 max-w-sm bg-white relative flex flex-col h-full shadow-2xl animate-in slide-in-from-left duration-300">
+              <button onClick={() => setIsMobileMenuOpen(false)} className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600"><X size={24} /></button>
+              <NavigationContent />
+            </div>
+          </div>
+        )}
+
+        <div className="flex-1 flex flex-col h-full overflow-hidden">
+          {/* Mobile Header */}
+          <div className="md:hidden bg-white p-4 flex justify-between items-center shadow-sm z-20">
+            <button onClick={() => setIsMobileMenuOpen(true)} className="text-slate-700">
+              <Menu size={24} />
+            </button>
+            <span className="font-bold text-lg text-indigo-900">Fridman Care</span>
+            <div className="w-6"></div> {/* Spacer for centering */}
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 md:p-8">
+            <div className="max-w-7xl mx-auto space-y-8">
+              {activeTab === 'dashboard' && (
+                <div className="space-y-8 animate-in fade-in duration-500">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className={`${STYLES.card} ${STYLES.cardPadding} bg-gradient-to-br from-indigo-500 to-indigo-600 text-white border-none`}>
+                      <div className="flex justify-between items-start mb-6">
+                        <div>
+                          <p className="text-indigo-100 text-sm font-medium">Total de Pacientes</p>
+                          <h3 className="text-4xl font-extrabold mt-1">{myPatients.length}</h3>
+                        </div>
+                        <div className="bg-white/20 p-3 rounded-xl backdrop-blur-sm"><Users size={24} /></div>
+                      </div>
+                      <div className="text-xs font-bold bg-white/20 inline-flex items-center gap-1 px-2 py-1 rounded-lg backdrop-blur-sm"><TrendingUp size={12} /> +2 esta semana</div>
+                    </div>
+
+                    <div className={`${STYLES.card} ${STYLES.cardPadding}`}>
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <p className="text-slate-400 font-bold text-xs uppercase">Consultas Hoje</p>
+                          <h3 className="text-3xl font-extrabold text-slate-900">{todayAppts.length}</h3>
+                        </div>
+                        <div className="bg-purple-100 p-3 rounded-xl text-purple-600"><Calendar size={24} /></div>
+                      </div>
+                      <div className="text-sm text-slate-500 font-medium">Próxima: 14:00</div>
+                    </div>
+
+                    <div className={`${STYLES.card} ${STYLES.cardPadding}`}>
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <p className="text-slate-400 font-bold text-xs uppercase">Planos Ativos</p>
+                          <h3 className="text-3xl font-extrabold text-slate-900">{workouts.length}</h3>
+                        </div>
+                        <div className="bg-emerald-100 p-3 rounded-xl text-emerald-600"><Dumbbell size={24} /></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div className={`${STYLES.card} p-6 md:p-8`}>
+                      <h3 className={`${STYLES.h2} mb-6 flex items-center gap-2`}>
+                        <Activity className="text-indigo-500" size={20} /> Atividade Recente
+                      </h3>
+                      <div className="space-y-6">
+                        {myLogs.slice(0, 5).map(log => (
+                          <div key={log.id} className="flex items-center gap-4 pb-4 border-b border-slate-100 last:border-0 last:pb-0 group">
+                            <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-600 font-bold group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
+                              {log.userName?.[0]}
+                            </div>
+                            <div>
+                              <p className="font-bold text-slate-800">{log.userName}</p>
+                              <p className="text-sm text-slate-500">Completou <span className="font-semibold text-indigo-600">{log.title}</span></p>
+                              <p className="text-xs text-slate-400 mt-1 font-medium">{formatDate(log.date)} • {log.totalVolume}kg Vol</p>
+                            </div>
+                          </div>
+                        ))}
+                        {myLogs.length === 0 && <p className="text-slate-400 text-sm font-medium italic">Nenhuma atividade recente.</p>}
+                      </div>
+                    </div>
+
+                    <div className={`${STYLES.card} p-6 md:p-8`}>
+                      <h3 className={`${STYLES.h2} mb-6`}>Ações Rápidas</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <button className="p-6 rounded-2xl border-2 border-dashed border-slate-300 hover:border-indigo-500 hover:bg-indigo-50 transition-all flex flex-col items-center justify-center text-center gap-3 group">
+                          <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center text-slate-400 group-hover:text-indigo-500 group-hover:shadow-indigo-200 transition-all">
+                            <Upload size={24} />
+                          </div>
+                          <span className="text-sm font-bold text-slate-600 group-hover:text-indigo-700">Enviar Dieta (PDF)</span>
+                        </button>
+                        <button
+                          onClick={() => setActiveTab('workouts')}
+                          className="p-6 rounded-2xl border-2 border-dashed border-slate-300 hover:border-indigo-500 hover:bg-indigo-50 transition-all flex flex-col items-center justify-center text-center gap-3 group"
+                        >
+                          <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center text-slate-400 group-hover:text-indigo-500 group-hover:shadow-indigo-200 transition-all">
+                            <Plus size={24} />
+                          </div>
+                          <span className="text-sm font-bold text-slate-600 group-hover:text-indigo-700">Novo Plano</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'patients' && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                    <h2 className={STYLES.h1}>Meus Pacientes</h2>
+                    <button className={STYLES.btnPrimary}><Plus size={20} /> Adicionar Novo</button>
+                  </div>
+                  <div className={STYLES.card + ' overflow-x-auto'}>
+                    <table className="w-full text-left text-sm min-w-[700px]">
+                      <thead className="bg-slate-50 text-slate-500 uppercase text-xs font-bold">
+                        <tr>
+                          <th className="px-8 py-5">Paciente</th>
+                          <th className="px-8 py-5">Status</th>
+                          <th className="px-8 py-5">Plano Atual</th>
+                          <th className="px-8 py-5 text-right">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {myPatients.map(patient => (
+                          <tr key={patient.id} className="hover:bg-slate-50 transition-colors group">
+                            <td className="px-8 py-5">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center font-bold text-slate-600 group-hover:bg-indigo-200 group-hover:text-indigo-700 transition-colors">
+                                  {patient.name[0]}
+                                </div>
+                                <span className="font-bold text-slate-800 text-base">{patient.name}</span>
+                              </div>
+                            </td>
+                            <td className="px-8 py-5"><span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">Ativo</span></td>
+                            <td className="px-8 py-5 text-slate-500 font-medium">Premium Mensal</td>
+                            <td className="px-8 py-5 text-right">
+                              <button
+                                onClick={() => { setSelectedChatUser(patient.id); setActiveTab('messages'); }}
+                                className="text-indigo-600 hover:text-indigo-800 font-bold text-sm bg-indigo-50 px-4 py-2 rounded-lg hover:bg-indigo-100 transition-colors"
+                              >
+                                Mensagem
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'workouts' && (
+                <WorkoutBuilder onCreate={createWorkout} />
+              )}
+
+              {activeTab === 'messages' && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 h-[calc(100vh-140px)] md:h-[600px] gap-6 animate-in fade-in duration-500">
+                  {/* List (Hidden on mobile if chat selected) */}
+                  <div className={`${STYLES.card} ${selectedChatUser ? 'hidden lg:flex' : 'flex'} col-span-1 overflow-hidden flex-col`}>
+                    <div className="p-5 border-b border-slate-100 bg-slate-50 font-bold text-slate-700 text-lg">Conversas</div>
+                    <div className="overflow-y-auto flex-1 p-2">
+                      {myPatients.map(p => (
+                        <button
+                          key={p.id}
+                          onClick={() => setSelectedChatUser(p.id)}
+                          className={`w-full p-4 text-left rounded-xl flex items-center gap-4 transition-all mb-1 ${selectedChatUser === p.id ? 'bg-indigo-50 ring-1 ring-indigo-200 shadow-sm' : 'hover:bg-slate-50'}`}
+                        >
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${selectedChatUser === p.id ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                            {p.name[0]}
+                          </div>
+                          <span className={`font-bold ${selectedChatUser === p.id ? 'text-indigo-900' : 'text-slate-700'}`}>{p.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Chat Area (Full width on mobile when selected) */}
+                  <div className={`${selectedChatUser ? 'flex' : 'hidden lg:flex'} col-span-1 lg:col-span-2 h-full flex-col`}>
+                    {selectedChatUser ? (
+                      <div className="h-full flex flex-col">
+                        <button onClick={() => setSelectedChatUser(null)} className="lg:hidden mb-4 text-sm text-indigo-600 font-bold flex items-center gap-1 bg-white p-2 rounded-lg w-fit shadow-sm"><ArrowLeft size={16} /> Voltar</button>
+                        <ChatSystem currentUser={user} targetId={selectedChatUser} users={allUsers} />
+                      </div>
+                    ) : (
+                      <div className={`${STYLES.card} h-full flex flex-col items-center justify-center text-slate-400 gap-4`}>
+                        <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center">
+                          <MessageSquare size={32} />
+                        </div>
+                        <p className="font-medium">Selecione um paciente para iniciar o chat</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+  // Patient
+  const PatientView = () => {
+    const [tab, setTab] = useState('home');
+    const proUsers = allUsers.filter(u => u.role === 'professional');
+
+    const handleStartWorkout = (workout) => {
+      setActiveWorkout(workout);
+    };
+
+    return (
+      <div className="min-h-screen bg-slate-100 pb-24 md:pb-0 font-sans">
+        {/* Mobile Header */}
+        <header className="bg-white shadow-sm sticky top-0 z-10 px-6 py-4 flex justify-between items-center md:hidden">
+          <div className="font-extrabold text-xl text-indigo-600 flex items-center gap-2"><Activity size={20} /> Fridman</div>
+          <button onClick={handleLogout} className="text-slate-400 hover:text-red-500"><LogOut size={24} /></button>
+        </header>
+
+        <div className="flex min-h-screen">
+          <div className="hidden md:flex flex-col w-72 bg-white border-r border-slate-200 fixed h-full z-20 shadow-xl">
+            <div className="p-8 text-2xl font-extrabold text-slate-800 flex items-center gap-2">
+              <Activity className="text-indigo-600" size={32} /> Fridman
+            </div>
+            <nav className="flex-1 space-y-2 p-6">
+              {[
+                { id: 'home', label: 'Início', icon: Activity },
+                { id: 'training', label: 'Meus Treinos', icon: Dumbbell },
+                { id: 'diet', label: 'Nutrição', icon: FileText },
+                { id: 'messages', label: 'Contato Pro', icon: MessageSquare }
+              ].map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => setTab(t.id)}
+                  className={`w-full text-left px-5 py-4 rounded-xl font-bold flex items-center gap-3 transition-all ${tab === t.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
+                >
+                  <t.icon size={20} /> {t.label}
+                </button>
+              ))}
+            </nav>
+            <div className="p-6 border-t border-slate-100">
+              <button onClick={handleLogout} className="text-red-500 font-bold text-sm hover:bg-red-50 w-full p-3 rounded-xl flex items-center gap-2 transition-colors">
+                <LogOut size={18} /> Sair do Sistema
+              </button>
+            </div>
+          </div>
+
+          <main className="flex-1 md:ml-72 p-6 md:p-10 max-w-5xl mx-auto w-full">
+
+            {tab === 'home' && (
+              <div className="space-y-8 animate-in fade-in duration-500">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900">Olá, {userData.name.split(' ')[0]} 👋</h1>
+                    <p className="text-slate-500 font-medium mt-1">Hoje é um ótimo dia para evoluir.</p>
+                  </div>
+                  <div className="hidden md:block w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold border-2 border-indigo-200">
+                    {userData.name[0]}
+                  </div>
+                </div>
+
+                <div className={`${STYLES.card} p-6 md:p-8 bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-xl shadow-indigo-200 border-none relative overflow-hidden`}>
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full -mr-20 -mt-20 blur-2xl"></div>
+                  <div className="relative z-10">
+                    <div className="flex justify-between items-center mb-6">
+                      <h3 className="font-bold text-indigo-100 text-lg">Seu Progresso Corporal</h3>
+                      <Activity className="text-white/80" />
+                    </div>
+                    <div className="flex items-end gap-3 mb-4">
+                      <span className="text-4xl md:text-5xl font-extrabold tracking-tight">14.2%</span>
+                      <span className="text-base text-indigo-200 mb-2 font-medium">Gordura Corporal</span>
+                    </div>
+                    <div className="h-3 w-full bg-black/20 rounded-full overflow-hidden backdrop-blur-sm">
+                      <div className="h-full bg-white w-[70%] rounded-full shadow-lg"></div>
+                    </div>
+                    <p className="text-sm text-indigo-100 mt-4 font-medium flex items-center gap-2">
+                      <TrendingUp size={16} /> Queda de 1.5% comparado ao último mês. Excelente!
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <h2 className={`${STYLES.h2} mb-4`}>Próximo Treino</h2>
+                  {workouts.length > 0 ? (
+                    workouts.slice(0, 1).map(w => (
+                      <div key={w.id} className={`${STYLES.card} p-0 flex flex-col md:flex-row group`}>
+                        <div className="h-48 md:h-auto md:w-48 bg-slate-200 object-cover relative flex items-center justify-center">
+                          <div className="absolute inset-0 bg-indigo-900/10 group-hover:bg-indigo-900/0 transition-colors"></div>
+                          <Dumbbell size={48} className="text-slate-400" />
+                        </div>
+                        <div className="p-6 md:p-8 flex-1 flex flex-col justify-center">
+                          <div className="flex justify-between items-start mb-2">
+                            <h3 className="font-extrabold text-xl md:text-2xl text-slate-800">{w.title}</h3>
+                            <span className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">Hipertrofia</span>
+                          </div>
+                          <p className="text-slate-500 mb-6 font-medium">{w.exercises.length} Exercícios • Duração Est. 45 min</p>
+                          <button
+                            onClick={() => handleStartWorkout(w)}
+                            className={`${STYLES.btnPrimary} w-full md:w-auto self-start`}
+                          >
+                            <Play size={20} fill="currentColor" /> Iniciar Sessão
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className={`${STYLES.card} p-8 text-center text-slate-500`}>Nenhum treino atribuído ainda.</div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {tab === 'training' && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <h2 className={STYLES.h1}>Seus Treinos</h2>
+                <div className="grid grid-cols-1 gap-4">
+                  {workouts.map(w => (
+                    <div key={w.id} className={`${STYLES.card} p-6 flex flex-col md:flex-row justify-between items-center gap-4 hover:border-indigo-300 transition-colors cursor-pointer`} onClick={() => handleStartWorkout(w)}>
+                      <div className="flex items-center gap-5 w-full md:w-auto">
+                        <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100 flex-shrink-0">
+                          <Dumbbell size={28} />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-xl text-slate-900">{w.title}</h3>
+                          <p className="text-sm text-slate-500 font-medium">{w.exercises.length} exercícios</p>
+                        </div>
+                      </div>
+                      <button
+                        className="bg-slate-900 text-white px-6 py-3 rounded-xl text-sm font-bold w-full md:w-auto hover:bg-indigo-600 transition-colors shadow-lg"
+                      >
+                        Começar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <h2 className={`${STYLES.h1} mt-12`}>Histórico de Treinos</h2>
+                {myLogs.length === 0 ? <p className="text-slate-500 text-sm font-medium italic">Nenhum treino registrado.</p> : (
+                  <div className="space-y-4">
+                    {myLogs.map(log => (
+                      <div key={log.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center hover:shadow-md transition-shadow">
+                        <div>
+                          <h4 className="font-bold text-slate-800 text-lg">{log.title}</h4>
+                          <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">{formatDate(log.date)}</span>
+                        </div>
+                        <div className="flex gap-6 text-sm text-slate-600 font-medium">
+                          <span className="flex items-center gap-1"><Clock size={16} className="text-indigo-500" /> {Math.floor(log.duration / 60)}min</span>
+                          <span className="flex items-center gap-1"><Dumbbell size={16} className="text-indigo-500" /> {log.totalVolume}kg</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {tab === 'diet' && (
+              <div className="space-y-6 animate-in fade-in duration-500">
+                <h2 className={STYLES.h1}>Nutrição e Dieta</h2>
+                <div className={`${STYLES.card} p-10 flex flex-col items-center justify-center text-center space-y-6 border-2 border-dashed border-slate-200`}>
+                  <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center text-green-600 shadow-sm">
+                    <FileText size={40} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-xl text-slate-900">Plano Alimentar Atual</h3>
+                    <p className="text-slate-500 text-sm mt-1">Atualizado por Dr. Fridman em 01/12/2025</p>
+                  </div>
+                  <button className={STYLES.btnSecondary}>
+                    Baixar PDF da Dieta
+                  </button>
+                </div>
+
+                <div className={`${STYLES.card} p-8`}>
+                  <h3 className="font-bold text-slate-900 text-lg mb-6">Metas de Macronutrientes</h3>
+                  <div className="space-y-6">
+                    <div>
+                      <div className="flex justify-between text-sm mb-2 font-bold text-slate-700">
+                        <span>Proteínas</span>
+                        <span>140g / 180g</span>
+                      </div>
+                      <div className="h-3 bg-slate-100 rounded-full overflow-hidden"><div className="w-[75%] h-full bg-indigo-500 rounded-full shadow-sm"></div></div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-sm mb-2 font-bold text-slate-700">
+                        <span>Carboidratos</span>
+                        <span>200g / 250g</span>
+                      </div>
+                      <div className="h-3 bg-slate-100 rounded-full overflow-hidden"><div className="w-[80%] h-full bg-blue-500 rounded-full shadow-sm"></div></div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-sm mb-2 font-bold text-slate-700">
+                        <span>Gorduras</span>
+                        <span>45g / 65g</span>
+                      </div>
+                      <div className="h-3 bg-slate-100 rounded-full overflow-hidden"><div className="w-[60%] h-full bg-amber-400 rounded-full shadow-sm"></div></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {tab === 'messages' && (
+              <div className="h-[calc(100vh-140px)] md:h-[600px] animate-in fade-in duration-500">
+                {selectedChatUser ? (
+                  <div className="h-full flex flex-col">
+                    <button onClick={() => setSelectedChatUser(null)} className="md:hidden mb-4 text-sm text-indigo-600 font-bold flex items-center bg-indigo-50 w-fit px-3 py-1 rounded-full"><ChevronDown className="rotate-90" /> Voltar</button>
+                    <ChatSystem currentUser={user} targetId={selectedChatUser} users={allUsers} />
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <h2 className={STYLES.h1}>Seus Profissionais</h2>
+                    {proUsers.length === 0 && <p className="text-slate-500 italic">Nenhum profissional disponível.</p>}
+                    {proUsers.map(p => (
+                      <div key={p.id} onClick={() => setSelectedChatUser(p.id)} className={`${STYLES.card} p-6 flex items-center gap-6 cursor-pointer hover:border-indigo-400 hover:shadow-md transition-all`}>
+                        <div className="w-14 h-14 rounded-2xl bg-indigo-100 flex items-center justify-center font-bold text-indigo-700 text-lg shadow-sm">
+                          {p.name[0]}
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-bold text-lg text-slate-900">{p.name}</h3>
+                          <p className="text-sm text-slate-500 font-medium">Toque para enviar mensagem</p>
+                        </div>
+                        <div className="bg-slate-50 p-3 rounded-full text-slate-400">
+                          <MessageSquare size={24} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+          </main>
+        </div>
+
+        {/* Mobile Bottom Nav */}
+        <nav className="fixed bottom-0 w-full bg-white/90 backdrop-blur-md border-t border-slate-200 flex justify-around py-4 pb-safe md:hidden z-30 shadow-lg">
+          <button onClick={() => setTab('home')} className={`flex flex-col items-center gap-1 ${tab === 'home' ? 'text-indigo-600' : 'text-slate-400'}`}>
+            <Activity size={24} strokeWidth={tab === 'home' ? 2.5 : 2} />
+            <span className="text-[10px] font-bold">Início</span>
+          </button>
+          <button onClick={() => setTab('training')} className={`flex flex-col items-center gap-1 ${tab === 'training' ? 'text-indigo-600' : 'text-slate-400'}`}>
+            <Dumbbell size={24} strokeWidth={tab === 'training' ? 2.5 : 2} />
+            <span className="text-[10px] font-bold">Treino</span>
+          </button>
+          <button onClick={() => setTab('diet')} className={`flex flex-col items-center gap-1 ${tab === 'diet' ? 'text-indigo-600' : 'text-slate-400'}`}>
+            <FileText size={24} strokeWidth={tab === 'diet' ? 2.5 : 2} />
+            <span className="text-[10px] font-bold">Dieta</span>
+          </button>
+          <button onClick={() => setTab('messages')} className={`flex flex-col items-center gap-1 ${tab === 'messages' ? 'text-indigo-600' : 'text-slate-400'}`}>
+            <MessageSquare size={24} strokeWidth={tab === 'messages' ? 2.5 : 2} />
+            <span className="text-[10px] font-bold">Chat</span>
+          </button>
+        </nav>
+      </div>
+    );
+  };
+
+  if (loading) return (
+    <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-50 text-indigo-600 gap-4">
+      <div className="w-16 h-16 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+      <p className="font-bold text-lg animate-pulse">Carregando Fridman Care...</p>
+    </div>
+  );
+
+  if (!BYPASS_AUTH && (!user || !userData)) return <AuthScreen onLogin={() => { }} />;
+
+  // Render content
+  let content = null;
+  if (activeWorkout) {
+    content = <ActiveWorkout workout={activeWorkout} onClose={() => setActiveWorkout(null)} onFinish={saveWorkoutLog} />;
+  } else if (userData?.role === 'admin') {
+    content = <AdminView />;
+  } else if (userData?.role === 'professional') {
+    content = <ProfessionalView />;
+  } else {
+    content = <PatientView />;
+  }
+
+  return (
+    <>
+      {content}
+      {BYPASS_AUTH && <DevRoleSwitcher onSwitch={switchRole} currentRole={activeRole} />}
+    </>
+  );
+}
+
+// --- WORKOUT BUILDER ---
+function WorkoutBuilder({ onCreate }) {
+  const [title, setTitle] = useState('');
+  const [exercises, setExercises] = useState([]);
+  const [currentEx, setCurrentEx] = useState({ name: '', sets: 3, reps: 10, weight: 0 });
+
+  const addExercise = () => {
+    if (!currentEx.name) return;
+    const setsArray = Array(currentEx.sets).fill({ reps: currentEx.reps, weight: currentEx.weight });
+    setExercises([...exercises, { ...currentEx, sets: setsArray }]);
+    setCurrentEx({ name: '', sets: 3, reps: 10, weight: 0 });
+  };
+
+  const handleCreate = () => {
+    if (!title || exercises.length === 0) return;
+    onCreate({ title, exercises });
+    setTitle('');
+    setExercises([]);
+  };
+
+  return (
+    <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <h2 className={STYLES.h1}>Criador de Treinos</h2>
+
+      <div className={STYLES.card + ' ' + STYLES.cardPadding}>
+        <div className="mb-6">
+          <label className={STYLES.label}>Título do Plano</label>
+          <input type="text" className={STYLES.input} placeholder="Ex: Hipertrofia Fase 1 - Pernas" value={title} onChange={e => setTitle(e.target.value)} />
+        </div>
+
+        <div className="border-t border-slate-100 pt-6">
+          <h3 className="font-bold text-slate-800 mb-4">Adicionar Exercício</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <input type="text" className={STYLES.input} placeholder="Nome do Exercício" value={currentEx.name} onChange={e => setCurrentEx({ ...currentEx, name: e.target.value })} />
+            <div className="grid grid-cols-3 gap-2">
+              <input type="number" className={STYLES.input + ' text-center'} placeholder="Séries" value={currentEx.sets} onChange={e => setCurrentEx({ ...currentEx, sets: parseInt(e.target.value) })} />
+              <input type="number" className={STYLES.input + ' text-center'} placeholder="Reps" value={currentEx.reps} onChange={e => setCurrentEx({ ...currentEx, reps: parseInt(e.target.value) })} />
+              <input type="number" className={STYLES.input + ' text-center'} placeholder="Carga" value={currentEx.weight} onChange={e => setCurrentEx({ ...currentEx, weight: parseInt(e.target.value) })} />
+            </div>
+          </div>
+          <button onClick={addExercise} className="bg-slate-100 text-slate-700 font-bold text-sm flex items-center justify-center gap-2 hover:bg-indigo-50 hover:text-indigo-600 p-3 rounded-xl w-full transition-colors border-2 border-dashed border-slate-200 hover:border-indigo-300">
+            <Plus size={18} /> Adicionar à lista
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {exercises.map((ex, i) => (
+          <div key={i} className="bg-white p-5 rounded-2xl border border-slate-100 flex justify-between items-center shadow-sm animate-in slide-in-from-left-2">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-600 font-bold">
+                {i + 1}
+              </div>
+              <div>
+                <p className="font-bold text-slate-900">{ex.name}</p>
+                <p className="text-xs text-slate-500 font-medium">{ex.sets.length} séries x {ex.reps} reps</p>
+              </div>
+            </div>
+            <button onClick={() => setExercises(exercises.filter((_, idx) => idx !== i))} className="text-red-400 hover:bg-red-50 p-2 rounded-lg transition-colors"><X size={20} /></button>
+          </div>
+        ))}
+        {exercises.length === 0 && <div className="text-center text-slate-400 py-8 italic">Nenhum exercício adicionado ainda.</div>}
+      </div>
+
+      {exercises.length > 0 && (
+        <button onClick={handleCreate} className={`${STYLES.btnPrimary} w-full shadow-xl shadow-indigo-300/50`}>Publicar Treino</button>
+      )}
+    </div>
+  );
+}
