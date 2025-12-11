@@ -61,16 +61,16 @@ const formatDate = (date) => new Date(date?.seconds * 1000 || Date.now()).toLoca
 const MOCK_USERS = {
   patient: {
     uid: 'mock-patient-1',
-    name: 'Leonardo Neto',
-    email: 'leo@plucucci.com.br',
+    name: 'Dev Patient',
+    email: 'dev@passenger.com',
     role: 'patient',
     plan: 'free',
     status: 'active'
   },
   professional: {
     uid: 'mock-pro-1',
-    name: 'Dr. Fridman',
-    email: 'dr@fridman.com',
+    name: 'Dev Coach',
+    email: 'dev@coach.com',
     role: 'professional',
     plan: 'professional_tier',
     status: 'active'
@@ -85,10 +85,52 @@ const MOCK_USERS = {
   }
 };
 
+const SAMPLE_WORKOUT = {
+  id: 'sample-workout-001',
+  title: 'Upper – Sample Workout',
+  createdBy: 'mock-pro-1',
+  createdAt: { seconds: Date.now() / 1000 },
+  exercises: [
+    { name: 'Lat Pulldown (Reverse Grip)', sets: [{ reps: 12, weight: 60 }, { reps: 10, weight: 65 }, { reps: 8, weight: 70 }] },
+    { name: 'Seated Cable Row', sets: [{ reps: 12, weight: 55 }, { reps: 10, weight: 60 }, { reps: 10, weight: 60 }] },
+    { name: 'Dumbbell Bench Press', sets: [{ reps: 10, weight: 26 }, { reps: 8, weight: 28 }, { reps: 8, weight: 28 }] },
+    { name: 'Lateral Raise', sets: [{ reps: 15, weight: 8 }, { reps: 15, weight: 8 }, { reps: 15, weight: 8 }] }
+  ]
+};
+
+const SAMPLE_DIET = {
+  id: 'sample-diet-001',
+  title: 'Sample Cutting Diet – 2300 kcal',
+  calories: 2300,
+  meals: [
+    { time: '07:30', name: 'Breakfast', items: ['80g oats', '200ml skim milk', '1 banana', '20g peanut butter'] },
+    { time: '12:30', name: 'Lunch', items: ['150g grilled chicken breast', '150g white rice', '100g mixed vegetables', '1 tbsp olive oil'] },
+    { time: '16:30', name: 'Afternoon Snack', items: ['1 yogurt (low fat)', '30g nuts'] },
+    { time: '18:30', name: 'Pre-workout', items: ['1 banana', '1 scoop whey protein'] },
+    { time: '21:00', name: 'Dinner', items: ['150g lean ground beef or fish', '150g sweet potato', 'Salad with olive oil'] }
+  ]
+};
+
+// --- Reusable Components ---
+const Avatar = ({ name, size = 'md', className = '' }) => {
+  const sizeClasses = {
+    sm: 'w-8 h-8 text-xs',
+    md: 'w-10 h-10 text-sm',
+    lg: 'w-12 h-12 text-base',
+    xl: 'w-14 h-14 text-lg'
+  };
+  const initial = name ? name[0].toUpperCase() : '?';
+  return (
+    <div className={`rounded-full bg-indigo-100 flex items-center justify-center font-bold text-indigo-600 shadow-sm border border-indigo-200 flex-shrink-0 ${sizeClasses[size] || sizeClasses.md} ${className}`}>
+      {initial}
+    </div>
+  );
+};
+
 // --- Components ---
 
 // 1. Authentication & Onboarding
-const AuthScreen = ({ onLogin }) => {
+const AuthScreen = ({ onLogin, isBypass = false }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [role, setRole] = useState('patient');
   const [email, setEmail] = useState('');
@@ -99,9 +141,10 @@ const AuthScreen = ({ onLogin }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isBypass) return; // Should not happen if buttons are used
     setError('');
     setLoading(true);
-
+    // ... existing logic ...
     try {
       let userCredential;
       if (isLogin) {
@@ -109,7 +152,6 @@ const AuthScreen = ({ onLogin }) => {
       } else {
         userCredential = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(userCredential.user, { displayName: name });
-
         const userData = {
           uid: userCredential.user.uid,
           name,
@@ -119,7 +161,6 @@ const AuthScreen = ({ onLogin }) => {
           status: role === 'professional' ? 'pending' : 'active',
           createdAt: serverTimestamp(),
         };
-
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', userCredential.user.uid), userData);
       }
     } catch (err) {
@@ -144,6 +185,33 @@ const AuthScreen = ({ onLogin }) => {
           <p className="text-slate-500 mt-2 font-medium">Excelência em Saúde e Performance</p>
         </div>
 
+        {isBypass ? (
+          <div className="space-y-4 mb-8">
+            <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-xl text-center mb-6">
+              <p className="text-indigo-800 font-bold mb-1">Modo de Desenvolvimento</p>
+              <p className="text-indigo-600 text-xs">Acesso rápido sem senha apenas para testes.</p>
+            </div>
+
+            <button
+              onClick={() => onLogin('patient')}
+              className={`${STYLES.btnPrimary} w-full bg-gradient-to-r from-blue-500 to-blue-600`}
+            >
+              <User size={20} /> Entrar como Paciente
+            </button>
+            <button
+              onClick={() => onLogin('professional')}
+              className={`${STYLES.btnSecondary} w-full`}
+            >
+              <Activity size={20} /> Entrar como Profissional
+            </button>
+
+            <div className="relative py-4">
+              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200"></div></div>
+              <div className="relative flex justify-center"><span className="bg-white px-4 text-xs text-slate-400 font-bold uppercase tracking-wider">Ou Login Tradicional</span></div>
+            </div>
+          </div>
+        ) : null}
+
         {error && (
           <div className="bg-red-50 text-red-600 p-4 rounded-xl mb-6 text-sm flex items-center gap-3 font-semibold border border-red-100">
             <ShieldAlert size={20} /> {error}
@@ -151,42 +219,22 @@ const AuthScreen = ({ onLogin }) => {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Form fields identical to before, kept for when/if bypass is disabled */}
           {!isLogin && (
             <div>
               <label className={STYLES.label}>Nome Completo</label>
-              <input
-                required
-                type="text"
-                className={STYLES.input}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ex: Ana Silva"
-              />
+              <input required type="text" className={STYLES.input} value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Ana Silva" />
             </div>
           )}
 
           <div>
             <label className={STYLES.label}>Email</label>
-            <input
-              required
-              type="email"
-              className={STYLES.input}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="voce@exemplo.com"
-            />
+            <input required type="email" className={STYLES.input} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@exemplo.com" />
           </div>
 
           <div>
             <label className={STYLES.label}>Senha</label>
-            <input
-              required
-              type="password"
-              className={STYLES.input}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-            />
+            <input required type="password" className={STYLES.input} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
           </div>
 
           {!isLogin && (
@@ -194,36 +242,19 @@ const AuthScreen = ({ onLogin }) => {
               <label className={STYLES.label}>Eu sou:</label>
               <div className="grid grid-cols-3 gap-2">
                 {['patient', 'professional', 'admin'].map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => setRole(r)}
-                    className={`p-3 rounded-xl border-2 text-center transition-all font-bold text-sm ${role === r
-                      ? 'bg-indigo-50 border-indigo-600 text-indigo-700'
-                      : 'border-slate-200 text-slate-400 hover:bg-slate-50'
-                      }`}
-                  >
-                    {r === 'patient' ? 'Paciente' : r === 'professional' ? 'Profissional' : 'Admin'}
-                  </button>
+                  <button key={r} type="button" onClick={() => setRole(r)} className={`p-3 rounded-xl border-2 text-center transition-all font-bold text-sm ${role === r ? 'bg-indigo-50 border-indigo-600 text-indigo-700' : 'border-slate-200 text-slate-400 hover:bg-slate-50'}`}>{r === 'patient' ? 'Paciente' : r === 'professional' ? 'Prof' : 'Admin'}</button>
                 ))}
               </div>
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className={`${STYLES.btnPrimary} w-full mt-8 text-lg`}
-          >
+          <button type="submit" disabled={loading} className={`${STYLES.btnPrimary} w-full mt-4 text-lg`}>
             {loading ? 'Processando...' : (isLogin ? 'Entrar no Sistema' : 'Criar Conta')}
           </button>
         </form>
 
         <div className="mt-8 text-center">
-          <button
-            onClick={() => setIsLogin(!isLogin)}
-            className="text-sm text-indigo-600 hover:text-indigo-800 font-bold transition-colors"
-          >
+          <button onClick={() => setIsLogin(!isLogin)} className="text-sm text-indigo-600 hover:text-indigo-800 font-bold transition-colors">
             {isLogin ? "Novo na Fridman Care? Crie sua conta" : "Já tem conta? Faça login"}
           </button>
         </div>
@@ -448,9 +479,11 @@ const ChatSystem = ({ currentUser, targetId, users }) => {
   return (
     <div className="flex flex-col h-full bg-slate-50 rounded-3xl overflow-hidden border border-slate-200 shadow-sm">
       <div className="bg-white p-4 border-b flex items-center gap-3 shadow-sm">
-        <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold shadow-md">
-          {targetUser?.name?.[0] || '?'}
-        </div>
+        <Avatar
+          name={targetUser?.name}
+          size="lg"
+          className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white border-none shadow-md"
+        />
         <div>
           <h3 className="font-bold text-slate-900">{targetUser?.name || 'Usuário'}</h3>
           <span className="text-xs text-green-600 flex items-center gap-1 font-medium">
@@ -548,9 +581,8 @@ export default function HealthHub() {
       }
 
       if (BYPASS_AUTH) {
-        const mockUser = MOCK_USERS[activeRole];
-        setUser({ uid: mockUser.uid });
-        setUserData(mockUser);
+        // In bypass mode, we do NOT auto-login immediately to allow Role Selection screen
+        // unless a role was already active? No, let's allow re-login.
         setLoading(false);
         return;
       }
@@ -587,16 +619,19 @@ export default function HealthHub() {
     if (!user || loading) return;
 
     const unsubWorkouts = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'workouts'), (snap) => {
-      setWorkouts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      let data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (BYPASS_AUTH) data = [SAMPLE_WORKOUT, ...data];
+      setWorkouts(data);
     }, (err) => console.log("Workout sync error:", err));
 
     const unsubUsers = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'users'), (snap) => {
       let realUsers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       if (BYPASS_AUTH) {
         const mockVals = Object.values(MOCK_USERS);
+        // Only add mock users if they aren't already in the "real" list
         mockVals.forEach(m => {
           if (!realUsers.find(r => r.uid === m.uid)) {
-            realUsers.push({ ...m, id: m.uid });
+            realUsers.push({ ...m, id: m.uid }); // Ensure id/uid consistency
           }
         });
       }
@@ -778,9 +813,7 @@ export default function HealthHub() {
         </nav>
         <div className="p-6 border-t border-slate-100 bg-slate-50/50">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center font-bold text-sm text-indigo-700 border-2 border-indigo-200">
-              {userData.name[0]}
-            </div>
+            <Avatar name={userData.name} size="md" className="border-2 border-indigo-200" />
             <div className="text-sm overflow-hidden">
               <p className="font-bold truncate text-slate-900">{userData.name}</p>
               <p className="text-xs text-indigo-500 font-medium">Profissional</p>
@@ -868,9 +901,11 @@ export default function HealthHub() {
                       <div className="space-y-6">
                         {myLogs.slice(0, 5).map(log => (
                           <div key={log.id} className="flex items-center gap-4 pb-4 border-b border-slate-100 last:border-0 last:pb-0 group">
-                            <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-600 font-bold group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
-                              {log.userName?.[0]}
-                            </div>
+                            <Avatar
+                              name={log.userName}
+                              size="lg"
+                              className="rounded-2xl bg-slate-100 text-slate-600 group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors"
+                            />
                             <div>
                               <p className="font-bold text-slate-800">{log.userName}</p>
                               <p className="text-sm text-slate-500">Completou <span className="font-semibold text-indigo-600">{log.title}</span></p>
@@ -927,9 +962,11 @@ export default function HealthHub() {
                           <tr key={patient.id} className="hover:bg-slate-50 transition-colors group">
                             <td className="px-8 py-5">
                               <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center font-bold text-slate-600 group-hover:bg-indigo-200 group-hover:text-indigo-700 transition-colors">
-                                  {patient.name[0]}
-                                </div>
+                                <Avatar
+                                  name={patient.name}
+                                  size="md"
+                                  className="bg-slate-200 text-slate-600 group-hover:bg-indigo-200 group-hover:text-indigo-700 transition-colors"
+                                />
                                 <span className="font-bold text-slate-800 text-base">{patient.name}</span>
                               </div>
                             </td>
@@ -967,9 +1004,11 @@ export default function HealthHub() {
                           onClick={() => setSelectedChatUser(p.id)}
                           className={`w-full p-4 text-left rounded-xl flex items-center gap-4 transition-all mb-1 ${selectedChatUser === p.id ? 'bg-indigo-50 ring-1 ring-indigo-200 shadow-sm' : 'hover:bg-slate-50'}`}
                         >
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${selectedChatUser === p.id ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-600'}`}>
-                            {p.name[0]}
-                          </div>
+                          <Avatar
+                            name={p.name}
+                            size="md"
+                            className={selectedChatUser === p.id ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-600'}
+                          />
                           <span className={`font-bold ${selectedChatUser === p.id ? 'text-indigo-900' : 'text-slate-700'}`}>{p.name}</span>
                         </button>
                       ))}
@@ -1054,8 +1093,8 @@ export default function HealthHub() {
                     <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900">Olá, {userData.name.split(' ')[0]} 👋</h1>
                     <p className="text-slate-500 font-medium mt-1">Hoje é um ótimo dia para evoluir.</p>
                   </div>
-                  <div className="hidden md:block w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold border-2 border-indigo-200">
-                    {userData.name[0]}
+                  <div className="hidden md:block">
+                    <Avatar name={userData.name} size="lg" className="border-2 border-indigo-200" />
                   </div>
                 </div>
 
@@ -1171,29 +1210,32 @@ export default function HealthHub() {
                 </div>
 
                 <div className={`${STYLES.card} p-8`}>
-                  <h3 className="font-bold text-slate-900 text-lg mb-6">Metas de Macronutrientes</h3>
+                  <div className="flex justify-between items-center mb-6">
+                    <div>
+                      <h3 className="font-bold text-slate-900 text-lg">{SAMPLE_DIET.title}</h3>
+                      <p className="text-sm text-slate-500 font-medium">{SAMPLE_DIET.calories} kcal • Objetivo: Cutting</p>
+                    </div>
+                    <div className="bg-green-100 text-green-700 px-3 py-1 rounded-lg text-xs font-bold uppercase">Ativa</div>
+                  </div>
+
                   <div className="space-y-6">
-                    <div>
-                      <div className="flex justify-between text-sm mb-2 font-bold text-slate-700">
-                        <span>Proteínas</span>
-                        <span>140g / 180g</span>
+                    {SAMPLE_DIET.meals.map((meal, idx) => (
+                      <div key={idx} className="flex gap-4">
+                        <div className="w-16 pt-1 text-right text-sm font-bold text-slate-400">{meal.time}</div>
+                        <div className="flex-1 pb-6 border-l-2 border-slate-100 pl-6 relative">
+                          <div className="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-indigo-100 border-2 border-white ring-1 ring-indigo-200"></div>
+                          <h4 className="font-bold text-slate-800 mb-2">{meal.name}</h4>
+                          <ul className="space-y-1">
+                            {meal.items.map((item, i) => (
+                              <li key={i} className="text-sm text-slate-600 flex items-center gap-2">
+                                <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
+                                {item}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
                       </div>
-                      <div className="h-3 bg-slate-100 rounded-full overflow-hidden"><div className="w-[75%] h-full bg-indigo-500 rounded-full shadow-sm"></div></div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-sm mb-2 font-bold text-slate-700">
-                        <span>Carboidratos</span>
-                        <span>200g / 250g</span>
-                      </div>
-                      <div className="h-3 bg-slate-100 rounded-full overflow-hidden"><div className="w-[80%] h-full bg-blue-500 rounded-full shadow-sm"></div></div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-sm mb-2 font-bold text-slate-700">
-                        <span>Gorduras</span>
-                        <span>45g / 65g</span>
-                      </div>
-                      <div className="h-3 bg-slate-100 rounded-full overflow-hidden"><div className="w-[60%] h-full bg-amber-400 rounded-full shadow-sm"></div></div>
-                    </div>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -1212,9 +1254,7 @@ export default function HealthHub() {
                     {proUsers.length === 0 && <p className="text-slate-500 italic">Nenhum profissional disponível.</p>}
                     {proUsers.map(p => (
                       <div key={p.id} onClick={() => setSelectedChatUser(p.id)} className={`${STYLES.card} p-6 flex items-center gap-6 cursor-pointer hover:border-indigo-400 hover:shadow-md transition-all`}>
-                        <div className="w-14 h-14 rounded-2xl bg-indigo-100 flex items-center justify-center font-bold text-indigo-700 text-lg shadow-sm">
-                          {p.name[0]}
-                        </div>
+                        <Avatar name={p.name} size="xl" className="rounded-2xl shadow-sm" />
                         <div className="flex-1">
                           <h3 className="font-bold text-lg text-slate-900">{p.name}</h3>
                           <p className="text-sm text-slate-500 font-medium">Toque para enviar mensagem</p>
@@ -1262,7 +1302,19 @@ export default function HealthHub() {
     </div>
   );
 
-  if (!BYPASS_AUTH && (!user || !userData)) return <AuthScreen onLogin={() => { }} />;
+  if ((!user || !userData)) {
+    // Show Auth Screen if no user (both Bypass and Real)
+    // Handle Bypass Mock Login
+    const handleMockLogin = (role) => {
+      const mockUser = MOCK_USERS[role];
+      if (mockUser) {
+        setUser({ uid: mockUser.uid });
+        setUserData(mockUser);
+        setActiveRole(role);
+      }
+    };
+    return <AuthScreen onLogin={BYPASS_AUTH ? handleMockLogin : () => { }} isBypass={BYPASS_AUTH} />;
+  }
 
   // Render content
   let content = null;
