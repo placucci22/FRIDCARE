@@ -325,15 +325,7 @@ function HealthHubContent() {
   const switchRole = (targetUser) => {
     console.log("Switching Role To:", targetUser);
     setUser(targetUser);
-
-    // Force Navigation based on Role - Critical for the fix
-    if (targetUser.role === 'professional') {
-      navigate('/pro/dashboard');
-    } else if (targetUser.role === 'admin') {
-      navigate('/admin/dashboard');
-    } else {
-      navigate('/patient/home');
-    }
+    // Navigation is handled by the Routes fallback based on user.role
   };
 
   useEffect(() => {
