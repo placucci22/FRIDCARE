@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import {
   Dumbbell, Calendar, MessageSquare, User, Activity,
   ChevronRight, Plus, Clock, Check, X, FileText,
@@ -370,9 +370,9 @@ function HealthHubContent() {
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <HealthHubContent />
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 
