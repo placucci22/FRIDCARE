@@ -67,6 +67,22 @@ const MOCK_USERS = {
     plan: 'free',
     status: 'active'
   },
+  patient2: {
+    uid: 'mock-patient-2',
+    name: 'Ana Test',
+    email: 'ana@test.com',
+    role: 'patient',
+    plan: 'premium',
+    status: 'active'
+  },
+  patient3: {
+    uid: 'mock-patient-3',
+    name: 'Carlos Demo',
+    email: 'carlos@demo.com',
+    role: 'patient',
+    plan: 'basic',
+    status: 'inactive'
+  },
   professional: {
     uid: 'mock-pro-1',
     name: 'Dev Coach',
@@ -86,15 +102,27 @@ const MOCK_USERS = {
 };
 
 const SAMPLE_WORKOUT = {
-  id: 'sample-workout-001',
-  title: 'Upper – Sample Workout',
+  id: 'sample-plan-001',
+  title: 'Hypertrophy – Phase 1',
   createdBy: 'mock-pro-1',
   createdAt: { seconds: Date.now() / 1000 },
-  exercises: [
-    { name: 'Lat Pulldown (Reverse Grip)', sets: [{ reps: 12, weight: 60 }, { reps: 10, weight: 65 }, { reps: 8, weight: 70 }] },
-    { name: 'Seated Cable Row', sets: [{ reps: 12, weight: 55 }, { reps: 10, weight: 60 }, { reps: 10, weight: 60 }] },
-    { name: 'Dumbbell Bench Press', sets: [{ reps: 10, weight: 26 }, { reps: 8, weight: 28 }, { reps: 8, weight: 28 }] },
-    { name: 'Lateral Raise', sets: [{ reps: 15, weight: 8 }, { reps: 15, weight: 8 }, { reps: 15, weight: 8 }] }
+  days: [
+    {
+      id: 'day-1',
+      title: 'Day A – Pull & Back',
+      exercises: [
+        { name: 'Lat Pulldown (Reverse Grip)', sets: [{ reps: 12, weight: 60 }, { reps: 10, weight: 65 }, { reps: 8, weight: 70 }] },
+        { name: 'Seated Cable Row', sets: [{ reps: 12, weight: 55 }, { reps: 10, weight: 60 }, { reps: 10, weight: 60 }] }
+      ]
+    },
+    {
+      id: 'day-2',
+      title: 'Day B – Push & Chest',
+      exercises: [
+        { name: 'Dumbbell Bench Press', sets: [{ reps: 10, weight: 26 }, { reps: 8, weight: 28 }, { reps: 8, weight: 28 }] },
+        { name: 'Lateral Raise', sets: [{ reps: 15, weight: 8 }, { reps: 15, weight: 8 }, { reps: 15, weight: 8 }] }
+      ]
+    }
   ]
 };
 
@@ -440,7 +468,7 @@ const ActiveWorkout = ({ workout, onClose, onFinish }) => {
 };
 
 // 3. Chat System
-const ChatSystem = ({ currentUser, targetId, users }) => {
+const ChatSystem = ({ currentUser, targetId, users, onSchedule }) => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [showQuickActions, setShowQuickActions] = useState(false);
@@ -480,7 +508,8 @@ const ChatSystem = ({ currentUser, targetId, users }) => {
   const handleQuickAction = (action) => {
     setShowQuickActions(false);
     if (action === 'schedule') {
-      alert(`Agendar consulta com ${targetUser.name} (Funcionalidade simulada - abriria modal de agenda)`);
+      if (onSchedule) onSchedule(targetId);
+      else alert("Agendamento não disponível nesta visualização.");
     } else if (action === 'diet') {
       alert(`Enviar dieta PDF para ${targetUser.name} (Funcionalidade simulada)`);
       // In real app, this would trigger the upload modal
@@ -720,7 +749,114 @@ export default function HealthHub() {
 
   // --- VIEWS ---
 
-  // Admin
+  // 3. Appointment Modal
+  const AppointmentModal = ({ isOpen, onClose, onSave, users, initialData }) => {
+    const [patientId, setPatientId] = useState(initialData?.patientId || '');
+    const [date, setDate] = useState(initialData?.date || '');
+    const [time, setTime] = useState(initialData?.time || '');
+    const [type, setType] = useState(initialData?.type || 'Consulta');
+
+    useEffect(() => {
+      if (isOpen) {
+        setPatientId(initialData?.patientId || '');
+        // If no date provided, default to today or tomorrow? Keep empty for now.
+        setDate(initialData?.date || new Date().toISOString().split('T')[0]);
+        setTime(initialData?.time || '10:00');
+      }
+    }, [isOpen, initialData]);
+
+    if (!isOpen) return null;
+
+    const handleSubmit = (e) => {
+      e.preventDefault();
+      onSave({
+        id: generateId(),
+        patientId,
+        date,
+        time,
+        type,
+        status: 'scheduled'
+      });
+      onClose();
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="bg-indigo-600 p-6 text-white flex justify-between items-center">
+            <h3 className="font-bold text-lg flex items-center gap-2"><Calendar size={20} /> Agendar Consulta</h3>
+            <button onClick={onClose} className="hover:bg-white/20 p-2 rounded-full transition-colors"><X size={20} /></button>
+          </div>
+          <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <div>
+              <label className={STYLES.label}>Paciente</label>
+              <select required className={STYLES.input} value={patientId} onChange={e => setPatientId(e.target.value)}>
+                <option value="">Selecione um paciente</option>
+                {users.filter(u => u.role === 'patient').map(u => (
+                  <option key={u.uid} value={u.uid}>{u.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={STYLES.label}>Data</label>
+                <input required type="date" className={STYLES.input} value={date} onChange={e => setDate(e.target.value)} />
+              </div>
+              <div>
+                <label className={STYLES.label}>Horário</label>
+                <input required type="time" className={STYLES.input} value={time} onChange={e => setTime(e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <label className={STYLES.label}>Tipo</label>
+              <select className={STYLES.input} value={type} onChange={e => setType(e.target.value)}>
+                <option value="Consulta">Consulta de Rotina</option>
+                <option value="Avaliação">Avaliação Física</option>
+                <option value="Personal">Treino Personal</option>
+                <option value="Retorno">Retorno</option>
+              </select>
+            </div>
+            <button type="submit" className={`${STYLES.btnPrimary} w-full mt-2`}>Confirmar Agendamento</button>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  const DayDetailModal = ({ isOpen, onClose, date, appointments, users }) => {
+    if (!isOpen) return null;
+    const dayAppts = appointments.filter(a => a.date === date);
+
+    return (
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="bg-slate-900 p-6 text-white flex justify-between items-center">
+            <div>
+              <h3 className="font-bold text-lg flex items-center gap-2"><Calendar size={20} /> Detalhes do Dia</h3>
+              <p className="text-slate-400 text-sm">{date ? new Date(date).toLocaleDateString('pt-BR', { dateStyle: 'full' }) : ''}</p>
+            </div>
+            <button onClick={onClose} className="hover:bg-white/20 p-2 rounded-full transition-colors"><X size={20} /></button>
+          </div>
+          <div className="p-6 max-h-[60vh] overflow-y-auto space-y-3">
+            {dayAppts.length > 0 ? dayAppts.map((appt, i) => (
+              <div key={i} className="flex items-center gap-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <div className="font-mono font-bold text-indigo-600 bg-white px-3 py-1 rounded-lg text-sm border border-indigo-100 shadow-sm">{appt.time}</div>
+                <div>
+                  <p className="font-bold text-slate-900">{users.find(u => u.uid === appt.patientId)?.name || 'Paciente'}</p>
+                  <p className="text-xs text-slate-500 font-medium uppercase">{appt.type}</p>
+                </div>
+              </div>
+            )) : <p className="text-center text-slate-500 py-4">Nenhum compromisso.</p>}
+          </div>
+          <div className="p-4 border-t border-slate-100 bg-slate-50">
+            <button onClick={onClose} className="w-full text-center text-slate-500 font-bold text-sm hover:text-slate-900">Fechar</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // 4. Admin View
   const AdminView = () => {
     const pendingProfessionals = allUsers.filter(u => u.role === 'professional' && u.status === 'pending');
     const approveUser = async (uid) => {
@@ -804,6 +940,25 @@ export default function HealthHub() {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [selectedPatientId, setSelectedPatientId] = useState(null); // New state for detail view
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [detailTab, setDetailTab] = useState('overview');
+
+    // Calendar & Appt State
+    const [appointments, setAppointments] = useState([
+      { id: 'apt-1', patientId: 'mock-patient-1', date: '2025-12-12', time: '14:00', type: 'Consulta', status: 'scheduled' },
+      { id: 'apt-2', patientId: 'mock-patient-2', date: '2025-12-14', time: '10:00', type: 'Avaliação', status: 'scheduled' }
+    ]);
+    const [showApptModal, setShowApptModal] = useState(false);
+    const [apptModalData, setApptModalData] = useState(null);
+
+    const openSchedule = (patientId = '') => {
+      setApptModalData({ patientId, date: new Date().toISOString().split('T')[0] });
+      setShowApptModal(true);
+    };
+
+    const handleSaveAppt = (newAppt) => {
+      setAppointments([...appointments, newAppt]);
+      alert(`Agendamento confirmado para ${newAppt.date} às ${newAppt.time}`);
+    };
 
     const myPatients = allUsers.filter(u => u.role === 'patient');
     const todayAppts = appointments.filter(a => a.date === new Date().toISOString().split('T')[0]);
@@ -1164,58 +1319,62 @@ export default function HealthHub() {
                     <div className="animate-in fade-in duration-500 space-y-6">
                       <div className="flex justify-between items-center">
                         <h2 className={STYLES.h1}>Agenda</h2>
-                        <button onClick={() => alert("Novo agendamento (Simulado)")} className={STYLES.btnPrimary}>
+                        <button onClick={() => openSchedule()} className={STYLES.btnPrimary}>
                           <Plus size={20} /> Novo Agendamento
                         </button>
                       </div>
 
-                      <div className={`${STYLES.card} p-6`}>
-                        <div className="flex justify-between items-center mb-6">
+                      <div className={`${STYLES.card} p-0 overflow-hidden`}>
+                        <div className="p-6 flex justify-between items-center border-b border-slate-100">
                           <h3 className="font-bold text-lg text-slate-900">Dezembro 2025</h3>
                           <div className="flex gap-2">
                             <button className="p-2 hover:bg-slate-100 rounded-full text-slate-400"><ChevronDown className="rotate-90" size={20} /></button>
                             <button className="p-2 hover:bg-slate-100 rounded-full text-slate-400"><ChevronRight size={20} /></button>
                           </div>
                         </div>
-                        <div className="grid grid-cols-7 gap-2 mb-2 text-center">
-                          {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
-                            <div key={i} className="text-xs font-bold text-slate-400 uppercase py-2">{d}</div>
+                        <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50">
+                          {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'].map((d, i) => (
+                            <div key={i} className="text-xs font-bold text-slate-400 uppercase py-3 text-center tracking-wider">{d}</div>
                           ))}
                         </div>
-                        <div className="grid grid-cols-7 gap-2">
-                          {Array.from({ length: 31 }, (_, i) => i + 1).map(day => {
-                            const isToday = day === 12; // Mock "today" for visualization
-                            const hasAppt = day === 12 || day === 14 || day === 18;
+                        <div className="grid grid-cols-7 bg-slate-100 gap-px border-b border-slate-100">
+                          {Array.from({ length: 31 }, (_, i) => {
+                            const day = i + 1;
+                            const dateStr = `2025-12-${day < 10 ? '0' + day : day}`;
+                            const dayAppts = appointments.filter(a => a.date === dateStr);
+                            const isToday = day === 12;
+
                             return (
                               <div
                                 key={day}
+                                onClick={() => { setApptModalData({ date: dateStr }); setShowDayModal(true); }}
                                 className={`
-                                   aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-bold cursor-pointer transition-all border
-                                   ${isToday ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-200' : 'bg-white text-slate-700 border-slate-100 hover:border-indigo-200 hover:bg-indigo-50'}
+                                   min-h-[120px] bg-white p-2 cursor-pointer transition-colors hover:bg-indigo-50/50 relative group
+                                   ${isToday ? 'bg-indigo-50/30' : ''}
                                  `}
                               >
-                                {day}
-                                {hasAppt && <div className={`w-1.5 h-1.5 rounded-full mt-1 ${isToday ? 'bg-white' : 'bg-indigo-500'}`}></div>}
+                                <span className={`
+                                   text-sm font-bold w-7 h-7 flex items-center justify-center rounded-full mb-2
+                                   ${isToday ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 group-hover:text-indigo-600'}
+                                 `}>
+                                  {day}
+                                </span>
+
+                                <div className="space-y-1">
+                                  {dayAppts.slice(0, 3).map((appt, idx) => (
+                                    <div key={idx} className="text-[10px] font-bold px-1.5 py-1 rounded bg-indigo-50 text-indigo-700 truncate border border-indigo-100">
+                                      {appt.time} {users.find(u => u.uid === appt.patientId)?.name.split(' ')[0]}
+                                    </div>
+                                  ))}
+                                  {dayAppts.length > 3 && (
+                                    <div className="text-[10px] font-bold text-slate-400 pl-1">
+                                      +{dayAppts.length - 3} mais
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             );
                           })}
-                        </div>
-                      </div>
-
-                      <div className={`${STYLES.card} p-6`}>
-                        <h3 className="font-bold text-slate-800 mb-4">Compromissos do Dia (12 Dez)</h3>
-                        <div className="space-y-3">
-                          {todayAppts.length > 0 ? todayAppts.map((appt, i) => (
-                            <div key={i} className="flex items-center gap-4 p-3 hover:bg-slate-50 rounded-xl transition-colors border border-transparent hover:border-slate-100">
-                              <div className="font-mono font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg text-sm">{appt.time || '14:00'}</div>
-                              <div>
-                                <p className="font-bold text-slate-900">{users.find(u => u.uid === appt.patientId)?.name || 'Paciente'}</p>
-                                <p className="text-xs text-slate-500 font-medium uppercase">{appt.type || 'Consulta de Rotina'}</p>
-                              </div>
-                            </div>
-                          )) : (
-                            <p className="text-slate-500 text-sm">Nenhum compromisso para hoje.</p>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -1249,7 +1408,7 @@ export default function HealthHub() {
                         {selectedChatUser ? (
                           <div className="h-full flex flex-col">
                             <button onClick={() => setSelectedChatUser(null)} className="lg:hidden mb-4 text-sm text-indigo-600 font-bold flex items-center gap-1 bg-white p-2 rounded-lg w-fit shadow-sm"><ArrowLeft size={16} /> Voltar</button>
-                            <ChatSystem currentUser={user} targetId={selectedChatUser} users={allUsers} />
+                            <ChatSystem currentUser={user} targetId={selectedChatUser} users={allUsers} onSchedule={openSchedule} />
                           </div>
                         ) : (
                           <div className={`${STYLES.card} h-full flex flex-col items-center justify-center text-slate-400 gap-4`}>
@@ -1268,303 +1427,345 @@ export default function HealthHub() {
           </div>
         </div>
       </div>
-    );
+      <AppointmentModal 
+        isOpen={showApptModal} 
+        onClose={() => setShowApptModal(false)} 
+        onSave={handleSaveAppt} 
+        users={allUsers}
+        initialData={apptModalData}
+      />
+      <DayDetailModal 
+        isOpen={showDayModal} 
+        onClose={() => setShowDayModal(false)} 
+        date={apptModalData?.date} 
+        appointments={appointments}
+        users={allUsers}
+      />
+    </div >
+  );
+};
+// Patient
+const PatientView = () => {
+  const [tab, setTab] = useState('home');
+  const proUsers = allUsers.filter(u => u.role === 'professional');
+
+  const handleStartWorkout = (plan, day) => {
+    setActiveWorkout({
+      id: `${plan.id}_${day.id}`,
+      title: `${plan.title} - ${day.title}`,
+      exercises: day.exercises
+    });
   };
-  // Patient
-  const PatientView = () => {
-    const [tab, setTab] = useState('home');
-    const proUsers = allUsers.filter(u => u.role === 'professional');
 
-    const handleStartWorkout = (workout) => {
-      setActiveWorkout(workout);
-    };
+  return (
+    <div className="min-h-screen bg-slate-100 pb-24 md:pb-0 font-sans">
+      {/* Mobile Header */}
+      <header className="bg-white shadow-sm sticky top-0 z-10 px-6 py-4 flex justify-between items-center md:hidden">
+        <div className="font-extrabold text-xl text-indigo-600 flex items-center gap-2"><Activity size={20} /> Fridman</div>
+        <button onClick={handleLogout} className="text-slate-400 hover:text-red-500"><LogOut size={24} /></button>
+      </header>
 
-    return (
-      <div className="min-h-screen bg-slate-100 pb-24 md:pb-0 font-sans">
-        {/* Mobile Header */}
-        <header className="bg-white shadow-sm sticky top-0 z-10 px-6 py-4 flex justify-between items-center md:hidden">
-          <div className="font-extrabold text-xl text-indigo-600 flex items-center gap-2"><Activity size={20} /> Fridman</div>
-          <button onClick={handleLogout} className="text-slate-400 hover:text-red-500"><LogOut size={24} /></button>
-        </header>
-
-        <div className="flex min-h-screen">
-          <div className="hidden md:flex flex-col w-72 bg-white border-r border-slate-200 fixed h-full z-20 shadow-xl">
-            <div className="p-8 text-2xl font-extrabold text-slate-800 flex items-center gap-2">
-              <Activity className="text-indigo-600" size={32} /> Fridman
-            </div>
-            <nav className="flex-1 space-y-2 p-6">
-              {[
-                { id: 'home', label: 'Início', icon: Activity },
-                { id: 'training', label: 'Meus Treinos', icon: Dumbbell },
-                { id: 'diet', label: 'Nutrição', icon: FileText },
-                { id: 'messages', label: 'Contato Pro', icon: MessageSquare }
-              ].map(t => (
-                <button
-                  key={t.id}
-                  onClick={() => setTab(t.id)}
-                  className={`w-full text-left px-5 py-4 rounded-xl font-bold flex items-center gap-3 transition-all ${tab === t.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
-                >
-                  <t.icon size={20} /> {t.label}
-                </button>
-              ))}
-            </nav>
-            <div className="p-6 border-t border-slate-100">
-              <button onClick={handleLogout} className="text-red-500 font-bold text-sm hover:bg-red-50 w-full p-3 rounded-xl flex items-center gap-2 transition-colors">
-                <LogOut size={18} /> Sair do Sistema
-              </button>
-            </div>
+      <div className="flex min-h-screen">
+        <div className="hidden md:flex flex-col w-72 bg-white border-r border-slate-200 fixed h-full z-20 shadow-xl">
+          <div className="p-8 text-2xl font-extrabold text-slate-800 flex items-center gap-2">
+            <Activity className="text-indigo-600" size={32} /> Fridman
           </div>
+          <nav className="flex-1 space-y-2 p-6">
+            {[
+              { id: 'home', label: 'Início', icon: Activity },
+              { id: 'training', label: 'Meus Treinos', icon: Dumbbell },
+              { id: 'diet', label: 'Nutrição', icon: FileText },
+              { id: 'messages', label: 'Contato Pro', icon: MessageSquare }
+            ].map(t => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={`w-full text-left px-5 py-4 rounded-xl font-bold flex items-center gap-3 transition-all ${tab === t.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
+              >
+                <t.icon size={20} /> {t.label}
+              </button>
+            ))}
+          </nav>
+          <div className="p-6 border-t border-slate-100">
+            <button onClick={handleLogout} className="text-red-500 font-bold text-sm hover:bg-red-50 w-full p-3 rounded-xl flex items-center gap-2 transition-colors">
+              <LogOut size={18} /> Sair do Sistema
+            </button>
+          </div>
+        </div>
 
-          <main className="flex-1 md:ml-72 p-6 md:p-10 max-w-5xl mx-auto w-full">
+        <main className="flex-1 md:ml-72 p-6 md:p-10 max-w-5xl mx-auto w-full">
 
-            {tab === 'home' && (
-              <div className="space-y-8 animate-in fade-in duration-500">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900">Olá, {userData.name.split(' ')[0]} 👋</h1>
-                    <p className="text-slate-500 font-medium mt-1">Hoje é um ótimo dia para evoluir.</p>
-                  </div>
-                  <div className="hidden md:block">
-                    <Avatar name={userData.name} size="lg" className="border-2 border-indigo-200" />
-                  </div>
-                </div>
-
-                <div className={`${STYLES.card} p-6 md:p-8 bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-xl shadow-indigo-200 border-none relative overflow-hidden`}>
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full -mr-20 -mt-20 blur-2xl"></div>
-                  <div className="relative z-10">
-                    <div className="flex justify-between items-center mb-6">
-                      <h3 className="font-bold text-indigo-100 text-lg">Seu Progresso Corporal</h3>
-                      <Activity className="text-white/80" />
-                    </div>
-                    <div className="flex items-end gap-3 mb-4">
-                      <span className="text-4xl md:text-5xl font-extrabold tracking-tight">14.2%</span>
-                      <span className="text-base text-indigo-200 mb-2 font-medium">Gordura Corporal</span>
-                    </div>
-                    <div className="h-3 w-full bg-black/20 rounded-full overflow-hidden backdrop-blur-sm">
-                      <div className="h-full bg-white w-[70%] rounded-full shadow-lg"></div>
-                    </div>
-                    <p className="text-sm text-indigo-100 mt-4 font-medium flex items-center gap-2">
-                      <TrendingUp size={16} /> Queda de 1.5% comparado ao último mês. Excelente!
-                    </p>
-                  </div>
-                </div>
-
+          {tab === 'home' && (
+            <div className="space-y-8 animate-in fade-in duration-500">
+              <div className="flex justify-between items-center">
                 <div>
-                  <h2 className={`${STYLES.h2} mb-4`}>Próximo Treino</h2>
-                  {workouts.length > 0 ? (
-                    workouts.slice(0, 1).map(w => (
-                      <div key={w.id} className={`${STYLES.card} p-0 flex flex-col md:flex-row group`}>
+                  <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900">Olá, {userData.name.split(' ')[0]} 👋</h1>
+                  <p className="text-slate-500 font-medium mt-1">Hoje é um ótimo dia para evoluir.</p>
+                </div>
+                <div className="hidden md:block">
+                  <Avatar name={userData.name} size="lg" className="border-2 border-indigo-200" />
+                </div>
+              </div>
+
+              <div className={`${STYLES.card} p-6 md:p-8 bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-xl shadow-indigo-200 border-none relative overflow-hidden`}>
+                <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full -mr-20 -mt-20 blur-2xl"></div>
+                <div className="relative z-10">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-indigo-100 text-lg">Seu Progresso Corporal</h3>
+                    <Activity className="text-white/80" />
+                  </div>
+                  <div className="flex items-end gap-3 mb-4">
+                    <span className="text-4xl md:text-5xl font-extrabold tracking-tight">14.2%</span>
+                    <span className="text-base text-indigo-200 mb-2 font-medium">Gordura Corporal</span>
+                  </div>
+                  <div className="h-3 w-full bg-black/20 rounded-full overflow-hidden backdrop-blur-sm">
+                    <div className="h-full bg-white w-[70%] rounded-full shadow-lg"></div>
+                  </div>
+                  <p className="text-sm text-indigo-100 mt-4 font-medium flex items-center gap-2">
+                    <TrendingUp size={16} /> Queda de 1.5% comparado ao último mês. Excelente!
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <h2 className={`${STYLES.h2} mb-4`}>Próximo Treino</h2>
+                {workouts.length > 0 ? (
+                  workouts.slice(0, 1).map(plan => {
+                    const nextDay = plan.days?.[0]; // Start with first day for now
+                    if (!nextDay) return null;
+
+                    return (
+                      <div key={plan.id} className={`${STYLES.card} p-0 flex flex-col md:flex-row group`}>
                         <div className="h-48 md:h-auto md:w-48 bg-slate-200 object-cover relative flex items-center justify-center">
                           <div className="absolute inset-0 bg-indigo-900/10 group-hover:bg-indigo-900/0 transition-colors"></div>
                           <Dumbbell size={48} className="text-slate-400" />
                         </div>
                         <div className="p-6 md:p-8 flex-1 flex flex-col justify-center">
                           <div className="flex justify-between items-start mb-2">
-                            <h3 className="font-extrabold text-xl md:text-2xl text-slate-800">{w.title}</h3>
-                            <span className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">Hipertrofia</span>
+                            <div>
+                              <h3 className="font-extrabold text-xl md:text-2xl text-slate-800">{plan.title}</h3>
+                              <p className="text-indigo-600 font-bold text-sm">{nextDay.title}</p>
+                            </div>
+                            <span className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">Fase 1</span>
                           </div>
-                          <p className="text-slate-500 mb-6 font-medium">{w.exercises.length} Exercícios • Duração Est. 45 min</p>
+                          <p className="text-slate-500 mb-6 font-medium">{nextDay.exercises.length} Exercícios • Duração Est. 45 min</p>
                           <button
-                            onClick={() => handleStartWorkout(w)}
+                            onClick={() => handleStartWorkout(plan, nextDay)}
                             className={`${STYLES.btnPrimary} w-full md:w-auto self-start`}
                           >
                             <Play size={20} fill="currentColor" /> Iniciar Sessão
                           </button>
                         </div>
                       </div>
-                    ))
-                  ) : (
-                    <div className={`${STYLES.card} p-8 text-center text-slate-500`}>Nenhum treino atribuído ainda.</div>
-                  )}
-                </div>
+                    );
+                  })
+                ) : (
+                  <div className={`${STYLES.card} p-8 text-center text-slate-500`}>Nenhum treino atribuído ainda.</div>
+                )}
               </div>
-            )}
+            </div>
+          )}
 
-            {tab === 'training' && (
-              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <h2 className={STYLES.h1}>Seus Treinos</h2>
-                <div className="grid grid-cols-1 gap-4">
-                  {workouts.map(w => (
-                    <div key={w.id} className={`${STYLES.card} p-6 flex flex-col md:flex-row justify-between items-center gap-4 hover:border-indigo-300 transition-colors cursor-pointer`} onClick={() => handleStartWorkout(w)}>
-                      <div className="flex items-center gap-5 w-full md:w-auto">
-                        <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100 flex-shrink-0">
-                          <Dumbbell size={28} />
-                        </div>
-                        <div>
-                          <h3 className="font-bold text-xl text-slate-900">{w.title}</h3>
-                          <p className="text-sm text-slate-500 font-medium">{w.exercises.length} exercícios</p>
-                        </div>
+          {tab === 'training' && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <h2 className={STYLES.h1}>Seus Treinos</h2>
+              <div className="grid grid-cols-1 gap-6">
+                {workouts.map(plan => (
+                  <div key={plan.id} className={`${STYLES.card} p-6 border-l-8 border-l-indigo-600`}>
+                    <div className="flex items-center gap-4 mb-6">
+                      <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
+                        <Dumbbell size={24} />
                       </div>
-                      <button
-                        className="bg-slate-900 text-white px-6 py-3 rounded-xl text-sm font-bold w-full md:w-auto hover:bg-indigo-600 transition-colors shadow-lg"
-                      >
-                        Começar
-                      </button>
+                      <div>
+                        <h3 className="font-bold text-xl text-slate-900">{plan.title}</h3>
+                        <p className="text-sm text-slate-500 font-medium">{plan.days?.length || 0} dias de treino</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      {plan.days?.map((day, idx) => (
+                        <div key={day.id} className="flex items-center justify-between p-4 rounded-xl bg-slate-50 hover:bg-white hover:shadow-md border border-transparent hover:border-indigo-100 transition-all group">
+                          <div className="flex items-center gap-4">
+                            <span className="w-8 h-8 rounded-full bg-white text-slate-500 font-bold flex items-center justify-center text-xs border border-slate-200 group-hover:border-indigo-200 group-hover:text-indigo-600">{idx + 1}</span>
+                            <div>
+                              <h4 className="font-bold text-slate-800">{day.title}</h4>
+                              <p className="text-xs text-slate-500">{day.exercises.length} exercícios</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleStartWorkout(plan, day)}
+                            className="text-indigo-600 font-bold text-sm bg-white px-4 py-2 rounded-lg shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-colors"
+                          >
+                            Iniciar
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <h2 className={`${STYLES.h1} mt-12`}>Histórico de Treinos</h2>
+              {myLogs.length === 0 ? <p className="text-slate-500 text-sm font-medium italic">Nenhum treino registrado.</p> : (
+                <div className="space-y-4">
+                  {myLogs.map(log => (
+                    <div key={log.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center hover:shadow-md transition-shadow">
+                      <div>
+                        <h4 className="font-bold text-slate-800 text-lg">{log.title}</h4>
+                        <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">{formatDate(log.date)}</span>
+                      </div>
+                      <div className="flex gap-6 text-sm text-slate-600 font-medium">
+                        <span className="flex items-center gap-1"><Clock size={16} className="text-indigo-500" /> {Math.floor(log.duration / 60)}min</span>
+                        <span className="flex items-center gap-1"><Dumbbell size={16} className="text-indigo-500" /> {log.totalVolume}kg</span>
+                      </div>
                     </div>
                   ))}
                 </div>
+              )}
+            </div>
+          )}
 
-                <h2 className={`${STYLES.h1} mt-12`}>Histórico de Treinos</h2>
-                {myLogs.length === 0 ? <p className="text-slate-500 text-sm font-medium italic">Nenhum treino registrado.</p> : (
-                  <div className="space-y-4">
-                    {myLogs.map(log => (
-                      <div key={log.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center hover:shadow-md transition-shadow">
-                        <div>
-                          <h4 className="font-bold text-slate-800 text-lg">{log.title}</h4>
-                          <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">{formatDate(log.date)}</span>
-                        </div>
-                        <div className="flex gap-6 text-sm text-slate-600 font-medium">
-                          <span className="flex items-center gap-1"><Clock size={16} className="text-indigo-500" /> {Math.floor(log.duration / 60)}min</span>
-                          <span className="flex items-center gap-1"><Dumbbell size={16} className="text-indigo-500" /> {log.totalVolume}kg</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+          {tab === 'diet' && (
+            <div className="space-y-6 animate-in fade-in duration-500">
+              <h2 className={STYLES.h1}>Nutrição e Dieta</h2>
+              <div className={`${STYLES.card} p-10 flex flex-col items-center justify-center text-center space-y-6 border-2 border-dashed border-slate-200`}>
+                <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center text-green-600 shadow-sm">
+                  <FileText size={40} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-xl text-slate-900">Plano Alimentar Atual</h3>
+                  <p className="text-slate-500 text-sm mt-1">Atualizado por Dr. Fridman em 01/12/2025</p>
+                </div>
+                <button className={STYLES.btnSecondary}>
+                  Baixar PDF da Dieta
+                </button>
               </div>
-            )}
 
-            {tab === 'diet' && (
-              <div className="space-y-6 animate-in fade-in duration-500">
-                <h2 className={STYLES.h1}>Nutrição e Dieta</h2>
-                <div className={`${STYLES.card} p-10 flex flex-col items-center justify-center text-center space-y-6 border-2 border-dashed border-slate-200`}>
-                  <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center text-green-600 shadow-sm">
-                    <FileText size={40} />
-                  </div>
+              <div className={`${STYLES.card} p-8`}>
+                <div className="flex justify-between items-center mb-6">
                   <div>
-                    <h3 className="font-bold text-xl text-slate-900">Plano Alimentar Atual</h3>
-                    <p className="text-slate-500 text-sm mt-1">Atualizado por Dr. Fridman em 01/12/2025</p>
+                    <h3 className="font-bold text-slate-900 text-lg">{SAMPLE_DIET.title}</h3>
+                    <p className="text-sm text-slate-500 font-medium">{SAMPLE_DIET.calories} kcal • Objetivo: Cutting</p>
                   </div>
-                  <button className={STYLES.btnSecondary}>
-                    Baixar PDF da Dieta
-                  </button>
+                  <div className="bg-green-100 text-green-700 px-3 py-1 rounded-lg text-xs font-bold uppercase">Ativa</div>
                 </div>
 
-                <div className={`${STYLES.card} p-8`}>
-                  <div className="flex justify-between items-center mb-6">
-                    <div>
-                      <h3 className="font-bold text-slate-900 text-lg">{SAMPLE_DIET.title}</h3>
-                      <p className="text-sm text-slate-500 font-medium">{SAMPLE_DIET.calories} kcal • Objetivo: Cutting</p>
+                <div className="space-y-6">
+                  {SAMPLE_DIET.meals.map((meal, idx) => (
+                    <div key={idx} className="flex gap-4">
+                      <div className="w-16 pt-1 text-right text-sm font-bold text-slate-400">{meal.time}</div>
+                      <div className="flex-1 pb-6 border-l-2 border-slate-100 pl-6 relative">
+                        <div className="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-indigo-100 border-2 border-white ring-1 ring-indigo-200"></div>
+                        <h4 className="font-bold text-slate-800 mb-2">{meal.name}</h4>
+                        <ul className="space-y-1">
+                          {meal.items.map((item, i) => (
+                            <li key={i} className="text-sm text-slate-600 flex items-center gap-2">
+                              <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     </div>
-                    <div className="bg-green-100 text-green-700 px-3 py-1 rounded-lg text-xs font-bold uppercase">Ativa</div>
-                  </div>
-
-                  <div className="space-y-6">
-                    {SAMPLE_DIET.meals.map((meal, idx) => (
-                      <div key={idx} className="flex gap-4">
-                        <div className="w-16 pt-1 text-right text-sm font-bold text-slate-400">{meal.time}</div>
-                        <div className="flex-1 pb-6 border-l-2 border-slate-100 pl-6 relative">
-                          <div className="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-indigo-100 border-2 border-white ring-1 ring-indigo-200"></div>
-                          <h4 className="font-bold text-slate-800 mb-2">{meal.name}</h4>
-                          <ul className="space-y-1">
-                            {meal.items.map((item, i) => (
-                              <li key={i} className="text-sm text-slate-600 flex items-center gap-2">
-                                <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                                {item}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  ))}
                 </div>
               </div>
-            )}
+            </div>
+          )}
 
-            {tab === 'messages' && (
-              <div className="h-[calc(100vh-140px)] md:h-[600px] animate-in fade-in duration-500">
-                {selectedChatUser ? (
-                  <div className="h-full flex flex-col">
-                    <button onClick={() => setSelectedChatUser(null)} className="md:hidden mb-4 text-sm text-indigo-600 font-bold flex items-center bg-indigo-50 w-fit px-3 py-1 rounded-full"><ChevronDown className="rotate-90" /> Voltar</button>
-                    <ChatSystem currentUser={user} targetId={selectedChatUser} users={allUsers} />
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    <h2 className={STYLES.h1}>Seus Profissionais</h2>
-                    {proUsers.length === 0 && <p className="text-slate-500 italic">Nenhum profissional disponível.</p>}
-                    {proUsers.map(p => (
-                      <div key={p.id} onClick={() => setSelectedChatUser(p.id)} className={`${STYLES.card} p-6 flex items-center gap-6 cursor-pointer hover:border-indigo-400 hover:shadow-md transition-all`}>
-                        <Avatar name={p.name} size="xl" className="rounded-2xl shadow-sm" />
-                        <div className="flex-1">
-                          <h3 className="font-bold text-lg text-slate-900">{p.name}</h3>
-                          <p className="text-sm text-slate-500 font-medium">Toque para enviar mensagem</p>
-                        </div>
-                        <div className="bg-slate-50 p-3 rounded-full text-slate-400">
-                          <MessageSquare size={24} />
-                        </div>
+          {tab === 'messages' && (
+            <div className="h-[calc(100vh-140px)] md:h-[600px] animate-in fade-in duration-500">
+              {selectedChatUser ? (
+                <div className="h-full flex flex-col">
+                  <button onClick={() => setSelectedChatUser(null)} className="md:hidden mb-4 text-sm text-indigo-600 font-bold flex items-center bg-indigo-50 w-fit px-3 py-1 rounded-full"><ChevronDown className="rotate-90" /> Voltar</button>
+                  <ChatSystem currentUser={user} targetId={selectedChatUser} users={allUsers} />
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <h2 className={STYLES.h1}>Seus Profissionais</h2>
+                  {proUsers.length === 0 && <p className="text-slate-500 italic">Nenhum profissional disponível.</p>}
+                  {proUsers.map(p => (
+                    <div key={p.id} onClick={() => setSelectedChatUser(p.id)} className={`${STYLES.card} p-6 flex items-center gap-6 cursor-pointer hover:border-indigo-400 hover:shadow-md transition-all`}>
+                      <Avatar name={p.name} size="xl" className="rounded-2xl shadow-sm" />
+                      <div className="flex-1">
+                        <h3 className="font-bold text-lg text-slate-900">{p.name}</h3>
+                        <p className="text-sm text-slate-500 font-medium">Toque para enviar mensagem</p>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+                      <div className="bg-slate-50 p-3 rounded-full text-slate-400">
+                        <MessageSquare size={24} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
-          </main>
-        </div>
-
-        {/* Mobile Bottom Nav */}
-        <nav className="fixed bottom-0 w-full bg-white/90 backdrop-blur-md border-t border-slate-200 flex justify-around py-4 pb-safe md:hidden z-30 shadow-lg">
-          <button onClick={() => setTab('home')} className={`flex flex-col items-center gap-1 ${tab === 'home' ? 'text-indigo-600' : 'text-slate-400'}`}>
-            <Activity size={24} strokeWidth={tab === 'home' ? 2.5 : 2} />
-            <span className="text-[10px] font-bold">Início</span>
-          </button>
-          <button onClick={() => setTab('training')} className={`flex flex-col items-center gap-1 ${tab === 'training' ? 'text-indigo-600' : 'text-slate-400'}`}>
-            <Dumbbell size={24} strokeWidth={tab === 'training' ? 2.5 : 2} />
-            <span className="text-[10px] font-bold">Treino</span>
-          </button>
-          <button onClick={() => setTab('diet')} className={`flex flex-col items-center gap-1 ${tab === 'diet' ? 'text-indigo-600' : 'text-slate-400'}`}>
-            <FileText size={24} strokeWidth={tab === 'diet' ? 2.5 : 2} />
-            <span className="text-[10px] font-bold">Dieta</span>
-          </button>
-          <button onClick={() => setTab('messages')} className={`flex flex-col items-center gap-1 ${tab === 'messages' ? 'text-indigo-600' : 'text-slate-400'}`}>
-            <MessageSquare size={24} strokeWidth={tab === 'messages' ? 2.5 : 2} />
-            <span className="text-[10px] font-bold">Chat</span>
-          </button>
-        </nav>
+        </main>
       </div>
-    );
-  };
 
-  if (loading) return (
-    <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-50 text-indigo-600 gap-4">
-      <div className="w-16 h-16 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
-      <p className="font-bold text-lg animate-pulse">Carregando Fridman Care...</p>
+      {/* Mobile Bottom Nav */}
+      <nav className="fixed bottom-0 w-full bg-white/90 backdrop-blur-md border-t border-slate-200 flex justify-around py-4 pb-safe md:hidden z-30 shadow-lg">
+        <button onClick={() => setTab('home')} className={`flex flex-col items-center gap-1 ${tab === 'home' ? 'text-indigo-600' : 'text-slate-400'}`}>
+          <Activity size={24} strokeWidth={tab === 'home' ? 2.5 : 2} />
+          <span className="text-[10px] font-bold">Início</span>
+        </button>
+        <button onClick={() => setTab('training')} className={`flex flex-col items-center gap-1 ${tab === 'training' ? 'text-indigo-600' : 'text-slate-400'}`}>
+          <Dumbbell size={24} strokeWidth={tab === 'training' ? 2.5 : 2} />
+          <span className="text-[10px] font-bold">Treino</span>
+        </button>
+        <button onClick={() => setTab('diet')} className={`flex flex-col items-center gap-1 ${tab === 'diet' ? 'text-indigo-600' : 'text-slate-400'}`}>
+          <FileText size={24} strokeWidth={tab === 'diet' ? 2.5 : 2} />
+          <span className="text-[10px] font-bold">Dieta</span>
+        </button>
+        <button onClick={() => setTab('messages')} className={`flex flex-col items-center gap-1 ${tab === 'messages' ? 'text-indigo-600' : 'text-slate-400'}`}>
+          <MessageSquare size={24} strokeWidth={tab === 'messages' ? 2.5 : 2} />
+          <span className="text-[10px] font-bold">Chat</span>
+        </button>
+      </nav>
     </div>
   );
+};
 
-  if ((!user || !userData)) {
-    // Show Auth Screen if no user (both Bypass and Real)
-    // Handle Bypass Mock Login
-    const handleMockLogin = (role) => {
-      const mockUser = MOCK_USERS[role];
-      if (mockUser) {
-        setUser({ uid: mockUser.uid });
-        setUserData(mockUser);
-        setActiveRole(role);
-      }
-    };
-    return <AuthScreen onLogin={BYPASS_AUTH ? handleMockLogin : () => { }} isBypass={BYPASS_AUTH} />;
-  }
+if (loading) return (
+  <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-50 text-indigo-600 gap-4">
+    <div className="w-16 h-16 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+    <p className="font-bold text-lg animate-pulse">Carregando Fridman Care...</p>
+  </div>
+);
 
-  // Render content
-  let content = null;
-  if (activeWorkout) {
-    content = <ActiveWorkout workout={activeWorkout} onClose={() => setActiveWorkout(null)} onFinish={saveWorkoutLog} />;
-  } else if (userData?.role === 'admin') {
-    content = <AdminView />;
-  } else if (userData?.role === 'professional') {
-    content = <ProfessionalView />;
-  } else {
-    content = <PatientView />;
-  }
+if ((!user || !userData)) {
+  // Show Auth Screen if no user (both Bypass and Real)
+  // Handle Bypass Mock Login
+  const handleMockLogin = (role) => {
+    const mockUser = MOCK_USERS[role];
+    if (mockUser) {
+      setUser({ uid: mockUser.uid });
+      setUserData(mockUser);
+      setActiveRole(role);
+    }
+  };
+  return <AuthScreen onLogin={BYPASS_AUTH ? handleMockLogin : () => { }} isBypass={BYPASS_AUTH} />;
+}
 
-  return (
-    <>
-      {content}
-      {BYPASS_AUTH && <DevRoleSwitcher onSwitch={switchRole} currentRole={activeRole} />}
-    </>
-  );
+// Render content
+let content = null;
+if (activeWorkout) {
+  content = <ActiveWorkout workout={activeWorkout} onClose={() => setActiveWorkout(null)} onFinish={saveWorkoutLog} />;
+} else if (userData?.role === 'admin') {
+  content = <AdminView />;
+} else if (userData?.role === 'professional') {
+  content = <ProfessionalView />;
+} else {
+  content = <PatientView />;
+}
+
+return (
+  <>
+    {content}
+    {BYPASS_AUTH && <DevRoleSwitcher onSwitch={switchRole} currentRole={activeRole} />}
+  </>
+);
 }
 
 // --- WORKOUT BUILDER ---
@@ -1574,39 +1775,96 @@ function WorkoutBuilder({ onCreate }) {
     "Seated Cable Row",
     "Dumbbell Bench Press",
     "Leg Press",
-    "Shoulder Press"
+    "Shoulder Press",
+    "Squat",
+    "Deadlift"
   ];
 
   const [title, setTitle] = useState('');
-  const [exercises, setExercises] = useState([]);
+  const [days, setDays] = useState([{ id: 'day-1', title: 'Dia 1', exercises: [] }]);
+  const [activeDayId, setActiveDayId] = useState('day-1');
+
+  // Current exercise input state
   const [currentEx, setCurrentEx] = useState({ name: '', sets: 3, reps: 10, weight: 0 });
+
+  const activeDay = days.find(d => d.id === activeDayId);
 
   const addExercise = () => {
     if (!currentEx.name) return;
-    const setsArray = Array(currentEx.sets).fill({ reps: currentEx.reps, weight: currentEx.weight });
-    setExercises([...exercises, { ...currentEx, sets: setsArray }]);
+    const newEx = {
+      ...currentEx,
+      sets: Array(currentEx.sets).fill({ reps: currentEx.reps, weight: currentEx.weight })
+    };
+
+    setDays(days.map(d => {
+      if (d.id === activeDayId) {
+        return { ...d, exercises: [...d.exercises, newEx] };
+      }
+      return d;
+    }));
     setCurrentEx({ name: '', sets: 3, reps: 10, weight: 0 });
   };
 
+  const addDay = () => {
+    const newId = `day-${days.length + 1}`;
+    setDays([...days, { id: newId, title: `Dia ${days.length + 1}`, exercises: [] }]);
+    setActiveDayId(newId);
+  };
+
   const handleCreate = () => {
-    if (!title || exercises.length === 0) return;
-    onCreate({ title, exercises });
+    if (!title || days.length === 0) return;
+    onCreate({ title, days });
     setTitle('');
-    setExercises([]);
+    setDays([{ id: 'day-1', title: 'Dia 1', exercises: [] }]);
+    setActiveDayId('day-1');
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <h2 className={STYLES.h1}>Criador de Treinos</h2>
+    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex justify-between items-center">
+        <h2 className={STYLES.h1}>Novo Plano de Treino</h2>
+        <button onClick={handleCreate} className={`${STYLES.btnPrimary} shadow-xl shadow-indigo-300/50`}>
+          <Save size={20} /> Salvar Plano
+        </button>
+      </div>
 
       <div className={STYLES.card + ' ' + STYLES.cardPadding}>
         <div className="mb-6">
-          <label className={STYLES.label}>Título do Plano</label>
-          <input type="text" className={STYLES.input} placeholder="Ex: Hipertrofia Fase 1 - Pernas" value={title} onChange={e => setTitle(e.target.value)} />
+          <label className={STYLES.label}>Nome do Plano</label>
+          <input type="text" className={STYLES.input} placeholder="Ex: Hipertrofia Fase 1" value={title} onChange={e => setTitle(e.target.value)} />
         </div>
 
-        <div className="border-t border-slate-100 pt-6">
-          <h3 className="font-bold text-slate-800 mb-4">Adicionar Exercício</h3>
+        {/* Days Tabs */}
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+          {days.map(day => (
+            <button
+              key={day.id}
+              onClick={() => setActiveDayId(day.id)}
+              className={`px-4 py-2 rounded-lg font-bold text-sm whitespace-nowrap transition-colors flex items-center gap-2 ${activeDayId === day.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+            >
+              <Calendar size={14} />
+              {activeDayId === day.id ? (
+                <input
+                  className="bg-transparent border-b border-white/50 w-20 outline-none"
+                  value={day.title}
+                  onChange={(e) => setDays(days.map(d => d.id === day.id ? { ...d, title: e.target.value } : d))}
+                  onClick={(e) => e.stopPropagation()}
+                />
+              ) : day.title}
+            </button>
+          ))}
+          <button onClick={addDay} className="px-4 py-2 rounded-lg font-bold text-sm bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors flex items-center gap-1">
+            <Plus size={16} /> Adicionar Dia
+          </button>
+        </div>
+
+        {/* Exercise Builder for Active Day */}
+        <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200">
+          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <Dumbbell size={18} className="text-indigo-500" />
+            Exercícios para <span className="text-indigo-600">{activeDay?.title}</span>
+          </h3>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div className="space-y-2">
               <label className="text-xs font-bold text-slate-400 uppercase">Exercício</label>
@@ -1614,7 +1872,7 @@ function WorkoutBuilder({ onCreate }) {
                 type="text"
                 list="exercises-list"
                 className={STYLES.input}
-                placeholder="Nome do Exercício"
+                placeholder="Busque ou digite..."
                 value={currentEx.name}
                 onChange={e => setCurrentEx({ ...currentEx, name: e.target.value })}
               />
@@ -1637,33 +1895,35 @@ function WorkoutBuilder({ onCreate }) {
               </div>
             </div>
           </div>
-          <button onClick={addExercise} className="bg-slate-100 text-slate-700 font-bold text-sm flex items-center justify-center gap-2 hover:bg-indigo-50 hover:text-indigo-600 p-3 rounded-xl w-full transition-colors border-2 border-dashed border-slate-200 hover:border-indigo-300">
-            <Plus size={18} /> Adicionar à lista
+          <button onClick={addExercise} className="bg-white text-slate-700 font-bold text-sm flex items-center justify-center gap-2 hover:bg-indigo-50 hover:text-indigo-600 p-3 rounded-xl w-full transition-colors border border-slate-200 hover:border-indigo-300 shadow-sm">
+            <Plus size={18} /> Adicionar Exercício
           </button>
         </div>
       </div>
 
       <div className="space-y-3">
-        {exercises.map((ex, i) => (
-          <div key={i} className="bg-white p-5 rounded-2xl border border-slate-100 flex justify-between items-center shadow-sm animate-in slide-in-from-left-2">
+        {activeDay?.exercises.map((ex, i) => (
+          <div key={i} className="bg-white p-5 rounded-2xl border border-slate-100 flex justify-between items-center shadow-sm animate-in slide-in-from-left-2 group">
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-600 font-bold">
+              <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-600 font-bold group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                 {i + 1}
               </div>
               <div>
                 <p className="font-bold text-slate-900">{ex.name}</p>
-                <p className="text-xs text-slate-500 font-medium">{ex.sets.length} séries x {ex.reps} reps</p>
+                <p className="text-xs text-slate-500 font-medium">{ex.sets.length} séries • {ex.sets[0].reps} reps • {ex.sets[0].weight}kg</p>
               </div>
             </div>
-            <button onClick={() => setExercises(exercises.filter((_, idx) => idx !== i))} className="text-red-400 hover:bg-red-50 p-2 rounded-lg transition-colors"><X size={20} /></button>
+            <button onClick={() => {
+              const newDays = [...days];
+              const dayIndex = newDays.findIndex(d => d.id === activeDayId);
+              newDays[dayIndex].exercises = newDays[dayIndex].exercises.filter((_, idx) => idx !== i);
+              setDays(newDays);
+            }} className="text-slate-300 hover:bg-red-50 hover:text-red-500 p-2 rounded-lg transition-colors"><X size={20} /></button>
           </div>
         ))}
-        {exercises.length === 0 && <div className="text-center text-slate-400 py-8 italic">Nenhum exercício adicionado ainda.</div>}
+        {activeDay?.exercises.length === 0 && <div className="text-center text-slate-400 py-12 italic border-2 border-dashed border-slate-100 rounded-xl">Nenhum exercício neste dia.</div>}
       </div>
-
-      {exercises.length > 0 && (
-        <button onClick={handleCreate} className={`${STYLES.btnPrimary} w-full shadow-xl shadow-indigo-300/50`}>Publicar Treino</button>
-      )}
     </div>
   );
 }
+```
