@@ -592,11 +592,11 @@ const DevRoleSwitcher = ({ onSwitch, currentRole }) => {
       <div className={`bg-white rounded-2xl shadow-2xl border border-slate-200 p-2 mb-2 space-y-2 transition-all origin-bottom-right ${isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 hidden'}`}>
         {Object.values(MOCK_USERS).map(u => (
           <button
-            key={u.role}
-            onClick={() => { onSwitch(u.role); setIsOpen(false); }}
+            key={u.role + u.uid}
+            onClick={() => { onSwitch(u); setIsOpen(false); }}
             className={`block w-full text-left px-4 py-2 rounded-xl text-sm font-bold ${currentRole === u.role ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-slate-50 text-slate-600'}`}
           >
-            {u.role === 'patient' ? 'Paciente' : u.role === 'professional' ? 'Profissional' : 'Admin'}
+            {u.name} ({u.role})
           </button>
         ))}
       </div>
@@ -670,9 +670,26 @@ export default function HealthHub() {
   }, [activeRole]);
 
   // Handle Role Switch
-  const switchRole = (newRole) => {
+  const switchRole = (newUser) => {
     setLoading(true);
-    setActiveRole(newRole);
+
+    // Handle both direct user object (from DevSwitcher) or role string fallback
+    let targetUser = newUser;
+    if (typeof newUser === 'string') {
+      targetUser = Object.values(MOCK_USERS).find(u => u.role === newUser) || MOCK_USERS['patient'];
+    }
+
+    setActiveRole(targetUser.role);
+
+    if (BYPASS_AUTH) {
+      // Enforce full session update for bypass mode
+      setUser({ uid: targetUser.uid });
+      setUserData(targetUser);
+
+      // Immediate loading clear since no async auth is happening
+      setTimeout(() => setLoading(false), 300);
+    }
+
     setSelectedChatUser(null);
   };
 
