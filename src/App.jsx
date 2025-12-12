@@ -18,11 +18,11 @@ import {
 } from 'firebase/firestore';
 
 // --- Firebase Initialization ---
-const firebaseConfig = { apiKey: "demo", projectId: "demo" };
+const firebaseConfig = JSON.parse(__firebase_config);
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const appId = 'health-hub-v1';
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'health-hub-v1';
 
 // --- Configuration ---
 const BYPASS_AUTH = true; // Set to false to enable real Login page
@@ -512,77 +512,6 @@ const DevRoleSwitcher = ({ onSwitch, currentRole }) => {
         </div>
     );
 };
-
-// --- WORKOUT BUILDER ---
-function WorkoutBuilder({ onCreate }) {
-    const [title, setTitle] = useState('');
-    const [exercises, setExercises] = useState([]);
-    const [currentEx, setCurrentEx] = useState({ name: '', sets: 3, reps: 10, weight: 0 });
-
-    const addExercise = () => {
-        if (!currentEx.name) return;
-        const setsArray = Array(currentEx.sets).fill({ reps: currentEx.reps, weight: currentEx.weight });
-        setExercises([...exercises, { ...currentEx, sets: setsArray }]);
-        setCurrentEx({ name: '', sets: 3, reps: 10, weight: 0 });
-    };
-
-    const handleCreate = () => {
-        if (!title || exercises.length === 0) return;
-        onCreate({ title, exercises });
-        setTitle('');
-        setExercises([]);
-    };
-
-    return (
-        <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h2 className={STYLES.h1}>Criador de Treinos</h2>
-
-            <div className={STYLES.card + ' ' + STYLES.cardPadding}>
-                <div className="mb-6">
-                    <label className={STYLES.label}>Título do Plano</label>
-                    <input type="text" className={STYLES.input} placeholder="Ex: Hipertrofia Fase 1 - Pernas" value={title} onChange={e => setTitle(e.target.value)} />
-                </div>
-
-                <div className="border-t border-slate-100 pt-6">
-                    <h3 className="font-bold text-slate-800 mb-4">Adicionar Exercício</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <input type="text" className={STYLES.input} placeholder="Nome do Exercício" value={currentEx.name} onChange={e => setCurrentEx({ ...currentEx, name: e.target.value })} />
-                        <div className="grid grid-cols-3 gap-2">
-                            <input type="number" className={STYLES.input + ' text-center'} placeholder="Séries" value={currentEx.sets} onChange={e => setCurrentEx({ ...currentEx, sets: parseInt(e.target.value) })} />
-                            <input type="number" className={STYLES.input + ' text-center'} placeholder="Reps" value={currentEx.reps} onChange={e => setCurrentEx({ ...currentEx, reps: parseInt(e.target.value) })} />
-                            <input type="number" className={STYLES.input + ' text-center'} placeholder="Carga" value={currentEx.weight} onChange={e => setCurrentEx({ ...currentEx, weight: parseInt(e.target.value) })} />
-                        </div>
-                    </div>
-                    <button onClick={addExercise} className="bg-slate-100 text-slate-700 font-bold text-sm flex items-center justify-center gap-2 hover:bg-indigo-50 hover:text-indigo-600 p-3 rounded-xl w-full transition-colors border-2 border-dashed border-slate-200 hover:border-indigo-300">
-                        <Plus size={18} /> Adicionar à lista
-                    </button>
-                </div>
-            </div>
-
-            <div className="space-y-3">
-                {exercises.map((ex, i) => (
-                    <div key={i} className="bg-white p-5 rounded-2xl border border-slate-100 flex justify-between items-center shadow-sm animate-in slide-in-from-left-2">
-                        <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-600 font-bold">
-                                {i + 1}
-                            </div>
-                            <div>
-                                <p className="font-bold text-slate-900">{ex.name}</p>
-                                <p className="text-xs text-slate-500 font-medium">{ex.sets.length} séries x {ex.reps} reps</p>
-                            </div>
-                        </div>
-                        <button onClick={() => setExercises(exercises.filter((_, idx) => idx !== i))} className="text-red-400 hover:bg-red-50 p-2 rounded-lg transition-colors"><X size={20} /></button>
-                    </div>
-                ))}
-                {exercises.length === 0 && <div className="text-center text-slate-400 py-8 italic">Nenhum exercício adicionado ainda.</div>}
-            </div>
-
-            {exercises.length > 0 && (
-                <button onClick={handleCreate} className={`${STYLES.btnPrimary} w-full shadow-xl shadow-indigo-300/50`}>Publicar Treino</button>
-            )}
-        </div>
-    );
-}
 
 // --- MAIN APP COMPONENT ---
 export default function HealthHub() {
@@ -1351,3 +1280,76 @@ export default function HealthHub() {
         </>
     );
 }
+
+// --- WORKOUT BUILDER ---
+function WorkoutBuilder({ onCreate }) {
+    const [title, setTitle] = useState('');
+    const [exercises, setExercises] = useState([]);
+    const [currentEx, setCurrentEx] = useState({ name: '', sets: 3, reps: 10, weight: 0 });
+
+    const addExercise = () => {
+        if (!currentEx.name) return;
+        const setsArray = Array(currentEx.sets).fill({ reps: currentEx.reps, weight: currentEx.weight });
+        setExercises([...exercises, { ...currentEx, sets: setsArray }]);
+        setCurrentEx({ name: '', sets: 3, reps: 10, weight: 0 });
+    };
+
+    const handleCreate = () => {
+        if (!title || exercises.length === 0) return;
+        onCreate({ title, exercises });
+        setTitle('');
+        setExercises([]);
+    };
+
+    return (
+        <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <h2 className={STYLES.h1}>Criador de Treinos</h2>
+
+            <div className={STYLES.card + ' ' + STYLES.cardPadding}>
+                <div className="mb-6">
+                    <label className={STYLES.label}>Título do Plano</label>
+                    <input type="text" className={STYLES.input} placeholder="Ex: Hipertrofia Fase 1 - Pernas" value={title} onChange={e => setTitle(e.target.value)} />
+                </div>
+
+                <div className="border-t border-slate-100 pt-6">
+                    <h3 className="font-bold text-slate-800 mb-4">Adicionar Exercício</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <input type="text" className={STYLES.input} placeholder="Nome do Exercício" value={currentEx.name} onChange={e => setCurrentEx({ ...currentEx, name: e.target.value })} />
+                        <div className="grid grid-cols-3 gap-2">
+                            <input type="number" className={STYLES.input + ' text-center'} placeholder="Séries" value={currentEx.sets} onChange={e => setCurrentEx({ ...currentEx, sets: parseInt(e.target.value) })} />
+                            <input type="number" className={STYLES.input + ' text-center'} placeholder="Reps" value={currentEx.reps} onChange={e => setCurrentEx({ ...currentEx, reps: parseInt(e.target.value) })} />
+                            <input type="number" className={STYLES.input + ' text-center'} placeholder="Carga" value={currentEx.weight} onChange={e => setCurrentEx({ ...currentEx, weight: parseInt(e.target.value) })} />
+                        </div>
+                    </div>
+                    <button onClick={addExercise} className="bg-slate-100 text-slate-700 font-bold text-sm flex items-center justify-center gap-2 hover:bg-indigo-50 hover:text-indigo-600 p-3 rounded-xl w-full transition-colors border-2 border-dashed border-slate-200 hover:border-indigo-300">
+                        <Plus size={18} /> Adicionar à lista
+                    </button>
+                </div>
+            </div>
+
+            <div className="space-y-3">
+                {exercises.map((ex, i) => (
+                    <div key={i} className="bg-white p-5 rounded-2xl border border-slate-100 flex justify-between items-center shadow-sm animate-in slide-in-from-left-2">
+                        <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-600 font-bold">
+                                {i + 1}
+                            </div>
+                            <div>
+                                <p className="font-bold text-slate-900">{ex.name}</p>
+                                <p className="text-xs text-slate-500 font-medium">{ex.sets.length} séries x {ex.reps} reps</p>
+                            </div>
+                        </div>
+                        <button onClick={() => setExercises(exercises.filter((_, idx) => idx !== i))} className="text-red-400 hover:bg-red-50 p-2 rounded-lg transition-colors"><X size={20} /></button>
+                    </div>
+                ))}
+                {exercises.length === 0 && <div className="text-center text-slate-400 py-8 italic">Nenhum exercício adicionado ainda.</div>}
+            </div>
+
+            {exercises.length > 0 && (
+                <button onClick={handleCreate} className={`${STYLES.btnPrimary} w-full shadow-xl shadow-indigo-300/50`}>Publicar Treino</button>
+            )}
+        </div>
+    );
+}
+
+
