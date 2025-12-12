@@ -443,6 +443,7 @@ const ActiveWorkout = ({ workout, onClose, onFinish }) => {
 const ChatSystem = ({ currentUser, targetId, users }) => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
+  const [showQuickActions, setShowQuickActions] = useState(false);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -463,7 +464,7 @@ const ChatSystem = ({ currentUser, targetId, users }) => {
   }, [messages]);
 
   const sendMessage = async (e) => {
-    e.preventDefault();
+    e && e.preventDefault();
     if (!newMessage.trim()) return;
     const chatId = [currentUser.uid, targetId].sort().join('_');
     await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'messages', chatId, 'logs'), {
@@ -476,9 +477,19 @@ const ChatSystem = ({ currentUser, targetId, users }) => {
 
   const targetUser = users.find(u => u.uid === targetId);
 
+  const handleQuickAction = (action) => {
+    setShowQuickActions(false);
+    if (action === 'schedule') {
+      alert(`Agendar consulta com ${targetUser.name} (Funcionalidade simulada - abriria modal de agenda)`);
+    } else if (action === 'diet') {
+      alert(`Enviar dieta PDF para ${targetUser.name} (Funcionalidade simulada)`);
+      // In real app, this would trigger the upload modal
+    }
+  };
+
   return (
-    <div className="flex flex-col h-full bg-slate-50 rounded-3xl overflow-hidden border border-slate-200 shadow-sm">
-      <div className="bg-white p-4 border-b flex items-center gap-3 shadow-sm">
+    <div className="flex flex-col h-full bg-slate-50 rounded-3xl overflow-hidden border border-slate-200 shadow-sm relative">
+      <div className="bg-white p-4 border-b flex items-center gap-3 shadow-sm z-10">
         <Avatar
           name={targetUser?.name}
           size="lg"
@@ -506,7 +517,28 @@ const ChatSystem = ({ currentUser, targetId, users }) => {
         <div ref={messagesEndRef} />
       </div>
 
-      <form onSubmit={sendMessage} className="p-4 bg-white border-t flex gap-3">
+      <form onSubmit={sendMessage} className="p-4 bg-white border-t flex gap-3 items-center relative z-20">
+        {/* Quick Actions Menu */}
+        <div className="relative">
+          {showQuickActions && (
+            <div className="absolute bottom-12 left-0 w-48 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden animate-in slide-in-from-bottom-2 fade-in duration-200">
+              <button type="button" onClick={() => handleQuickAction('schedule')} className="w-full text-left px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-indigo-600 flex items-center gap-2 transition-colors">
+                <Calendar size={16} /> Agendar
+              </button>
+              <button type="button" onClick={() => handleQuickAction('diet')} className="w-full text-left px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-indigo-600 flex items-center gap-2 transition-colors border-t border-slate-50">
+                <Upload size={16} /> Enviar Dieta
+              </button>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => setShowQuickActions(!showQuickActions)}
+            className={`p-3 rounded-full transition-all ${showQuickActions ? 'bg-indigo-100 text-indigo-600 rotate-45' : 'bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600'}`}
+          >
+            <Plus size={20} strokeWidth={3} />
+          </button>
+        </div>
+
         <input
           type="text"
           className="flex-1 bg-slate-100 border-0 rounded-full px-5 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-medium text-slate-700 placeholder:text-slate-400"
@@ -770,10 +802,14 @@ export default function HealthHub() {
   // Professional
   const ProfessionalView = () => {
     const [activeTab, setActiveTab] = useState('dashboard');
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // Mobile Menu State
+    const [selectedPatientId, setSelectedPatientId] = useState(null); // New state for detail view
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const myPatients = allUsers.filter(u => u.role === 'patient');
     const todayAppts = appointments.filter(a => a.date === new Date().toISOString().split('T')[0]);
+
+    // Derived selected patient
+    const selectedPatient = allUsers.find(u => u.uid === selectedPatientId);
 
     if (userData.status === 'pending') {
       return (
@@ -804,10 +840,10 @@ export default function HealthHub() {
           ].map(item => (
             <button
               key={item.id}
-              onClick={() => { setActiveTab(item.id); setIsMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-4 px-4 py-3.5 text-sm font-bold rounded-xl transition-all ${activeTab === item.id ? 'bg-indigo-50 text-indigo-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
+              onClick={() => { setActiveTab(item.id); setSelectedPatientId(null); setIsMobileMenuOpen(false); }}
+              className={`w-full flex items-center gap-4 px-4 py-3.5 text-sm font-bold rounded-xl transition-all ${activeTab === item.id && !selectedPatientId ? 'bg-indigo-50 text-indigo-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
             >
-              <item.icon size={20} className={activeTab === item.id ? "text-indigo-600" : "text-slate-400"} /> {item.label}
+              <item.icon size={20} className={activeTab === item.id && !selectedPatientId ? "text-indigo-600" : "text-slate-400"} /> {item.label}
             </button>
           ))}
         </nav>
@@ -825,6 +861,123 @@ export default function HealthHub() {
         </div>
       </>
     );
+
+    // Patient Detail View Component
+    const PatientDetailView = ({ patient }) => {
+      const [detailTab, setDetailTab] = useState('overview');
+      const patientWorkouts = workouts.filter(w => w.assignedTo === patient.uid || !w.assignedTo /* For demo, showing all if undefined */);
+      // Note: In real app, filter strictly. For demo, we might want to just show all workouts created or assigned.
+
+      return (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+          <div className="flex items-center gap-4 mb-2">
+            <button onClick={() => setSelectedPatientId(null)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors">
+              <ArrowLeft size={20} />
+            </button>
+            <h2 className="text-2xl font-bold text-slate-900">Detalhes do Paciente</h2>
+          </div>
+
+          <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200 flex flex-col md:flex-row gap-6 items-center md:items-start">
+            <Avatar name={patient.name} size="xl" className="w-24 h-24 text-3xl shadow-lg border-4 border-slate-50" />
+            <div className="flex-1 text-center md:text-left space-y-2">
+              <div className="flex flex-col md:flex-row items-center gap-3">
+                <h1 className="text-3xl font-extrabold text-slate-900">{patient.name}</h1>
+                <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold uppercase tracking-wide">Ativo</span>
+              </div>
+              <p className="text-slate-500 font-medium">{patient.email} • Desde {formatDate(patient.createdAt)}</p>
+              <div className="flex items-center justify-center md:justify-start gap-3 mt-4">
+                <button className={STYLES.btnPrimary + " px-5 py-2 text-sm"}>
+                  <Upload size={18} /> Enviar Dieta
+                </button>
+                <button onClick={() => { setActiveTab('workouts'); setSelectedPatientId(null); /* Pre-select logic todo */ }} className={STYLES.btnSecondary + " px-5 py-2 text-sm"}>
+                  <Dumbbell size={18} /> Criar Treino
+                </button>
+              </div>
+            </div>
+            <div className="bg-slate-50 p-6 rounded-2xl min-w-[200px] border border-slate-100">
+              <p className="text-xs font-bold text-slate-400 uppercase">Plano Atual</p>
+              <p className="text-xl font-extrabold text-indigo-600 mt-1">Premium Mensal</p>
+              <p className="text-xs text-slate-500 mt-2">Renova em 15/01</p>
+            </div>
+          </div>
+
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {['overview', 'workouts', 'diets', 'progress'].map(t => (
+              <button
+                key={t}
+                onClick={() => setDetailTab(t)}
+                className={`px-5 py-2.5 rounded-full font-bold text-sm whitespace-nowrap transition-all ${detailTab === t ? 'bg-slate-900 text-white shadow-md' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
+              >
+                {t === 'overview' ? 'Visão Geral' : t === 'workouts' ? 'Treinos' : t === 'diets' ? 'Dietas' : 'Progresso'}
+              </button>
+            ))}
+          </div>
+
+          {detailTab === 'overview' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className={`${STYLES.card} p-6`}>
+                <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><Activity size={18} /> Última Avaliação</h4>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-end border-b border-slate-50 pb-2">
+                    <span className="text-sm text-slate-500">Peso</span>
+                    <span className="font-bold text-slate-900">78.5 kg</span>
+                  </div>
+                  <div className="flex justify-between items-end border-b border-slate-50 pb-2">
+                    <span className="text-sm text-slate-500">Gordura Corporal</span>
+                    <span className="font-bold text-indigo-600">14.2%</span>
+                  </div>
+                  <div className="flex justify-between items-end">
+                    <span className="text-sm text-slate-500">Massa Magra</span>
+                    <span className="font-bold text-slate-900">67.3 kg</span>
+                  </div>
+                </div>
+              </div>
+              <div className={`${STYLES.card} p-6`}>
+                <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><Dumbbell size={18} /> Treino Atual</h4>
+                {patientWorkouts.length > 0 ? (
+                  <div>
+                    <p className="font-bold text-lg text-slate-900">{patientWorkouts[0].title}</p>
+                    <p className="text-xs text-slate-400 mt-1">Atribuído em {formatDate(patientWorkouts[0].createdAt)}</p>
+                    <button className="text-indigo-600 text-sm font-bold mt-4 hover:underline">Ver detalhes</button>
+                  </div>
+                ) : <p className="text-slate-400 text-sm">Nenhum treino atribuído.</p>}
+              </div>
+              <div className={`${STYLES.card} p-6`}>
+                <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><FileText size={18} /> Dieta Atual</h4>
+                <p className="font-bold text-lg text-slate-900">Cutting 2300kcal</p>
+                <p className="text-xs text-slate-400 mt-1">Enviada em 01/12/2025</p>
+                <button className="text-indigo-600 text-sm font-bold mt-4 hover:underline">Baixar PDF</button>
+              </div>
+            </div>
+          )}
+
+          {detailTab === 'workouts' && (
+            <div className="space-y-4">
+              {patientWorkouts.map(w => (
+                <div key={w.id} className={`${STYLES.card} p-5 flex items-center justify-between`}>
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl"><Dumbbell size={24} /></div>
+                    <div>
+                      <h4 className="font-bold text-slate-900">{w.title}</h4>
+                      <p className="text-sm text-slate-500">{w.exercises?.length || 0} exercícios</p>
+                    </div>
+                  </div>
+                  <button className="font-bold text-indigo-600 border border-indigo-200 px-4 py-2 rounded-lg hover:bg-indigo-50">Editar</button>
+                </div>
+              ))}
+              {patientWorkouts.length === 0 && <p className="text-center text-slate-500 py-8">Nenhum treino encontrado.</p>}
+            </div>
+          )}
+
+          {/* Other tabs placeholders */}
+          {(detailTab === 'diets' || detailTab === 'progress') && (
+            <div className="text-center py-10 text-slate-400 italic bg-white rounded-3xl border border-slate-200">
+              Funcionalidade em desenvolvimento...
+            </div>
+          )}
+        </div>
+      );
+    };
 
     return (
       <div className="flex h-screen bg-slate-100 font-sans text-slate-900">
@@ -857,181 +1010,259 @@ export default function HealthHub() {
 
           <div className="flex-1 overflow-y-auto p-4 md:p-8">
             <div className="max-w-7xl mx-auto space-y-8">
-              {activeTab === 'dashboard' && (
-                <div className="space-y-8 animate-in fade-in duration-500">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className={`${STYLES.card} ${STYLES.cardPadding} bg-gradient-to-br from-indigo-500 to-indigo-600 text-white border-none`}>
-                      <div className="flex justify-between items-start mb-6">
-                        <div>
-                          <p className="text-indigo-100 text-sm font-medium">Total de Pacientes</p>
-                          <h3 className="text-4xl font-extrabold mt-1">{myPatients.length}</h3>
-                        </div>
-                        <div className="bg-white/20 p-3 rounded-xl backdrop-blur-sm"><Users size={24} /></div>
-                      </div>
-                      <div className="text-xs font-bold bg-white/20 inline-flex items-center gap-1 px-2 py-1 rounded-lg backdrop-blur-sm"><TrendingUp size={12} /> +2 esta semana</div>
-                    </div>
-
-                    <div className={`${STYLES.card} ${STYLES.cardPadding}`}>
-                      <div className="flex justify-between items-start mb-4">
-                        <div>
-                          <p className="text-slate-400 font-bold text-xs uppercase">Consultas Hoje</p>
-                          <h3 className="text-3xl font-extrabold text-slate-900">{todayAppts.length}</h3>
-                        </div>
-                        <div className="bg-purple-100 p-3 rounded-xl text-purple-600"><Calendar size={24} /></div>
-                      </div>
-                      <div className="text-sm text-slate-500 font-medium">Próxima: 14:00</div>
-                    </div>
-
-                    <div className={`${STYLES.card} ${STYLES.cardPadding}`}>
-                      <div className="flex justify-between items-start mb-4">
-                        <div>
-                          <p className="text-slate-400 font-bold text-xs uppercase">Planos Ativos</p>
-                          <h3 className="text-3xl font-extrabold text-slate-900">{workouts.length}</h3>
-                        </div>
-                        <div className="bg-emerald-100 p-3 rounded-xl text-emerald-600"><Dumbbell size={24} /></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <div className={`${STYLES.card} p-6 md:p-8`}>
-                      <h3 className={`${STYLES.h2} mb-6 flex items-center gap-2`}>
-                        <Activity className="text-indigo-500" size={20} /> Atividade Recente
-                      </h3>
-                      <div className="space-y-6">
-                        {myLogs.slice(0, 5).map(log => (
-                          <div key={log.id} className="flex items-center gap-4 pb-4 border-b border-slate-100 last:border-0 last:pb-0 group">
-                            <Avatar
-                              name={log.userName}
-                              size="lg"
-                              className="rounded-2xl bg-slate-100 text-slate-600 group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors"
-                            />
+              {selectedPatientId ? (
+                <PatientDetailView patient={selectedPatient} />
+              ) : (
+                <>
+                  {activeTab === 'dashboard' && (
+                    <div className="space-y-8 animate-in fade-in duration-500">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className={`${STYLES.card} ${STYLES.cardPadding} bg-gradient-to-br from-indigo-500 to-indigo-600 text-white border-none`}>
+                          <div className="flex justify-between items-start mb-6">
                             <div>
-                              <p className="font-bold text-slate-800">{log.userName}</p>
-                              <p className="text-sm text-slate-500">Completou <span className="font-semibold text-indigo-600">{log.title}</span></p>
-                              <p className="text-xs text-slate-400 mt-1 font-medium">{formatDate(log.date)} • {log.totalVolume}kg Vol</p>
+                              <p className="text-indigo-100 text-sm font-medium">Total de Pacientes</p>
+                              <h3 className="text-4xl font-extrabold mt-1">{myPatients.length}</h3>
                             </div>
+                            <div className="bg-white/20 p-3 rounded-xl backdrop-blur-sm"><Users size={24} /></div>
                           </div>
-                        ))}
-                        {myLogs.length === 0 && <p className="text-slate-400 text-sm font-medium italic">Nenhuma atividade recente.</p>}
-                      </div>
-                    </div>
-
-                    <div className={`${STYLES.card} p-6 md:p-8`}>
-                      <h3 className={`${STYLES.h2} mb-6`}>Ações Rápidas</h3>
-                      <div className="grid grid-cols-2 gap-4">
-                        <button className="p-6 rounded-2xl border-2 border-dashed border-slate-300 hover:border-indigo-500 hover:bg-indigo-50 transition-all flex flex-col items-center justify-center text-center gap-3 group">
-                          <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center text-slate-400 group-hover:text-indigo-500 group-hover:shadow-indigo-200 transition-all">
-                            <Upload size={24} />
-                          </div>
-                          <span className="text-sm font-bold text-slate-600 group-hover:text-indigo-700">Enviar Dieta (PDF)</span>
-                        </button>
-                        <button
-                          onClick={() => setActiveTab('workouts')}
-                          className="p-6 rounded-2xl border-2 border-dashed border-slate-300 hover:border-indigo-500 hover:bg-indigo-50 transition-all flex flex-col items-center justify-center text-center gap-3 group"
-                        >
-                          <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center text-slate-400 group-hover:text-indigo-500 group-hover:shadow-indigo-200 transition-all">
-                            <Plus size={24} />
-                          </div>
-                          <span className="text-sm font-bold text-slate-600 group-hover:text-indigo-700">Novo Plano</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'patients' && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                    <h2 className={STYLES.h1}>Meus Pacientes</h2>
-                    <button className={STYLES.btnPrimary}><Plus size={20} /> Adicionar Novo</button>
-                  </div>
-                  <div className={STYLES.card + ' overflow-x-auto'}>
-                    <table className="w-full text-left text-sm min-w-[700px]">
-                      <thead className="bg-slate-50 text-slate-500 uppercase text-xs font-bold">
-                        <tr>
-                          <th className="px-8 py-5">Paciente</th>
-                          <th className="px-8 py-5">Status</th>
-                          <th className="px-8 py-5">Plano Atual</th>
-                          <th className="px-8 py-5 text-right">Ações</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {myPatients.map(patient => (
-                          <tr key={patient.id} className="hover:bg-slate-50 transition-colors group">
-                            <td className="px-8 py-5">
-                              <div className="flex items-center gap-3">
-                                <Avatar
-                                  name={patient.name}
-                                  size="md"
-                                  className="bg-slate-200 text-slate-600 group-hover:bg-indigo-200 group-hover:text-indigo-700 transition-colors"
-                                />
-                                <span className="font-bold text-slate-800 text-base">{patient.name}</span>
-                              </div>
-                            </td>
-                            <td className="px-8 py-5"><span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">Ativo</span></td>
-                            <td className="px-8 py-5 text-slate-500 font-medium">Premium Mensal</td>
-                            <td className="px-8 py-5 text-right">
-                              <button
-                                onClick={() => { setSelectedChatUser(patient.id); setActiveTab('messages'); }}
-                                className="text-indigo-600 hover:text-indigo-800 font-bold text-sm bg-indigo-50 px-4 py-2 rounded-lg hover:bg-indigo-100 transition-colors"
-                              >
-                                Mensagem
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'workouts' && (
-                <WorkoutBuilder onCreate={createWorkout} />
-              )}
-
-              {activeTab === 'messages' && (
-                <div className="grid grid-cols-1 lg:grid-cols-3 h-[calc(100vh-140px)] md:h-[600px] gap-6 animate-in fade-in duration-500">
-                  {/* List (Hidden on mobile if chat selected) */}
-                  <div className={`${STYLES.card} ${selectedChatUser ? 'hidden lg:flex' : 'flex'} col-span-1 overflow-hidden flex-col`}>
-                    <div className="p-5 border-b border-slate-100 bg-slate-50 font-bold text-slate-700 text-lg">Conversas</div>
-                    <div className="overflow-y-auto flex-1 p-2">
-                      {myPatients.map(p => (
-                        <button
-                          key={p.id}
-                          onClick={() => setSelectedChatUser(p.id)}
-                          className={`w-full p-4 text-left rounded-xl flex items-center gap-4 transition-all mb-1 ${selectedChatUser === p.id ? 'bg-indigo-50 ring-1 ring-indigo-200 shadow-sm' : 'hover:bg-slate-50'}`}
-                        >
-                          <Avatar
-                            name={p.name}
-                            size="md"
-                            className={selectedChatUser === p.id ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-600'}
-                          />
-                          <span className={`font-bold ${selectedChatUser === p.id ? 'text-indigo-900' : 'text-slate-700'}`}>{p.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Chat Area (Full width on mobile when selected) */}
-                  <div className={`${selectedChatUser ? 'flex' : 'hidden lg:flex'} col-span-1 lg:col-span-2 h-full flex-col`}>
-                    {selectedChatUser ? (
-                      <div className="h-full flex flex-col">
-                        <button onClick={() => setSelectedChatUser(null)} className="lg:hidden mb-4 text-sm text-indigo-600 font-bold flex items-center gap-1 bg-white p-2 rounded-lg w-fit shadow-sm"><ArrowLeft size={16} /> Voltar</button>
-                        <ChatSystem currentUser={user} targetId={selectedChatUser} users={allUsers} />
-                      </div>
-                    ) : (
-                      <div className={`${STYLES.card} h-full flex flex-col items-center justify-center text-slate-400 gap-4`}>
-                        <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center">
-                          <MessageSquare size={32} />
+                          <div className="text-xs font-bold bg-white/20 inline-flex items-center gap-1 px-2 py-1 rounded-lg backdrop-blur-sm"><TrendingUp size={12} /> +2 esta semana</div>
                         </div>
-                        <p className="font-medium">Selecione um paciente para iniciar o chat</p>
+
+                        <div className={`${STYLES.card} ${STYLES.cardPadding}`}>
+                          <div className="flex justify-between items-start mb-4">
+                            <div>
+                              <p className="text-slate-400 font-bold text-xs uppercase">Consultas Hoje</p>
+                              <h3 className="text-3xl font-extrabold text-slate-900">{todayAppts.length}</h3>
+                            </div>
+                            <div className="bg-purple-100 p-3 rounded-xl text-purple-600"><Calendar size={24} /></div>
+                          </div>
+                          <div className="text-sm text-slate-500 font-medium">Próxima: 14:00</div>
+                        </div>
+
+                        <div className={`${STYLES.card} ${STYLES.cardPadding}`}>
+                          <div className="flex justify-between items-start mb-4">
+                            <div>
+                              <p className="text-slate-400 font-bold text-xs uppercase">Planos Ativos</p>
+                              <h3 className="text-3xl font-extrabold text-slate-900">{workouts.length}</h3>
+                            </div>
+                            <div className="bg-emerald-100 p-3 rounded-xl text-emerald-600"><Dumbbell size={24} /></div>
+                          </div>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div className={`${STYLES.card} p-6 md:p-8`}>
+                          <h3 className={`${STYLES.h2} mb-6 flex items-center gap-2`}>
+                            <Activity className="text-indigo-500" size={20} /> Atividade Recente
+                          </h3>
+                          <div className="space-y-6">
+                            {myLogs.slice(0, 5).map(log => (
+                              <div key={log.id} className="flex items-center gap-4 pb-4 border-b border-slate-100 last:border-0 last:pb-0 group">
+                                <Avatar
+                                  name={log.userName}
+                                  size="lg"
+                                  className="rounded-2xl bg-slate-100 text-slate-600 group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors"
+                                />
+                                <div>
+                                  <p className="font-bold text-slate-800">{log.userName}</p>
+                                  <p className="text-sm text-slate-500">Completou <span className="font-semibold text-indigo-600">{log.title}</span></p>
+                                  <p className="text-xs text-slate-400 mt-1 font-medium">{formatDate(log.date)} • {log.totalVolume}kg Vol</p>
+                                </div>
+                              </div>
+                            ))}
+                            {myLogs.length === 0 && <p className="text-slate-400 text-sm font-medium italic">Nenhuma atividade recente.</p>}
+                          </div>
+                        </div>
+
+                        {/* Recent Patients Card (Replaces Quick Actions) */}
+                        <div className={`${STYLES.card} p-6 md:p-8`}>
+                          <h3 className={`${STYLES.h2} mb-6`}>Pacientes Recentes</h3>
+                          <div className="space-y-3">
+                            {myPatients.slice(0, 4).map(p => (
+                              <div
+                                key={p.id}
+                                onClick={() => setSelectedPatientId(p.id)}
+                                className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-xl cursor-pointer transition-colors group"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <Avatar name={p.name} size="md" className="bg-slate-100 group-hover:bg-indigo-100 text-indigo-600" />
+                                  <div>
+                                    <p className="font-bold text-slate-900">{p.name}</p>
+                                    <p className="text-xs text-slate-400">{p.email}</p>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-[10px] font-bold uppercase">Ativo</span>
+                                </div>
+                                <ChevronRight size={16} className="text-slate-300 group-hover:text-indigo-400" />
+                              </div>
+                            ))}
+                            {myPatients.length === 0 && <div className="text-slate-400 text-sm text-center py-4">Nenhum paciente ainda.</div>}
+                            <button onClick={() => setActiveTab('patients')} className="w-full mt-4 text-center text-indigo-600 font-bold text-sm hover:underline">Ver todos</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === 'patients' && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                      <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                        <h2 className={STYLES.h1}>Meus Pacientes</h2>
+                        <button className={STYLES.btnPrimary}><Plus size={20} /> Adicionar Novo</button>
+                      </div>
+                      <div className={STYLES.card + ' overflow-x-auto'}>
+                        <table className="w-full text-left text-sm min-w-[700px]">
+                          <thead className="bg-slate-50 text-slate-500 uppercase text-xs font-bold">
+                            <tr>
+                              <th className="px-8 py-5">Paciente</th>
+                              <th className="px-8 py-5">Status</th>
+                              <th className="px-8 py-5">Plano Atual</th>
+                              <th className="px-8 py-5 text-right">Ações</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {myPatients.map(patient => (
+                              <tr
+                                key={patient.id}
+                                onClick={() => setSelectedPatientId(patient.id)}
+                                className="hover:bg-slate-50 transition-colors group cursor-pointer"
+                              >
+                                <td className="px-8 py-5">
+                                  <div className="flex items-center gap-3">
+                                    <Avatar
+                                      name={patient.name}
+                                      size="md"
+                                      className="bg-slate-200 text-slate-600 group-hover:bg-indigo-200 group-hover:text-indigo-700 transition-colors"
+                                    />
+                                    <span className="font-bold text-slate-800 text-base">{patient.name}</span>
+                                  </div>
+                                </td>
+                                <td className="px-8 py-5"><span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">Ativo</span></td>
+                                <td className="px-8 py-5 text-slate-500 font-medium">Premium Mensal</td>
+                                <td className="px-8 py-5 text-right">
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setSelectedChatUser(patient.id); setActiveTab('messages'); }}
+                                    className="text-indigo-600 hover:text-indigo-800 font-bold text-sm bg-indigo-50 px-4 py-2 rounded-lg hover:bg-indigo-100 transition-colors"
+                                  >
+                                    Mensagem
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === 'workouts' && (
+                    <WorkoutBuilder onCreate={createWorkout} />
+                  )}
+
+                  {activeTab === 'schedule' && (
+                    <div className="animate-in fade-in duration-500 space-y-6">
+                      <div className="flex justify-between items-center">
+                        <h2 className={STYLES.h1}>Agenda</h2>
+                        <button onClick={() => alert("Novo agendamento (Simulado)")} className={STYLES.btnPrimary}>
+                          <Plus size={20} /> Novo Agendamento
+                        </button>
+                      </div>
+
+                      <div className={`${STYLES.card} p-6`}>
+                        <div className="flex justify-between items-center mb-6">
+                          <h3 className="font-bold text-lg text-slate-900">Dezembro 2025</h3>
+                          <div className="flex gap-2">
+                            <button className="p-2 hover:bg-slate-100 rounded-full text-slate-400"><ChevronDown className="rotate-90" size={20} /></button>
+                            <button className="p-2 hover:bg-slate-100 rounded-full text-slate-400"><ChevronRight size={20} /></button>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-7 gap-2 mb-2 text-center">
+                          {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
+                            <div key={i} className="text-xs font-bold text-slate-400 uppercase py-2">{d}</div>
+                          ))}
+                        </div>
+                        <div className="grid grid-cols-7 gap-2">
+                          {Array.from({ length: 31 }, (_, i) => i + 1).map(day => {
+                            const isToday = day === 12; // Mock "today" for visualization
+                            const hasAppt = day === 12 || day === 14 || day === 18;
+                            return (
+                              <div
+                                key={day}
+                                className={`
+                                   aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-bold cursor-pointer transition-all border
+                                   ${isToday ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-200' : 'bg-white text-slate-700 border-slate-100 hover:border-indigo-200 hover:bg-indigo-50'}
+                                 `}
+                              >
+                                {day}
+                                {hasAppt && <div className={`w-1.5 h-1.5 rounded-full mt-1 ${isToday ? 'bg-white' : 'bg-indigo-500'}`}></div>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className={`${STYLES.card} p-6`}>
+                        <h3 className="font-bold text-slate-800 mb-4">Compromissos do Dia (12 Dez)</h3>
+                        <div className="space-y-3">
+                          {todayAppts.length > 0 ? todayAppts.map((appt, i) => (
+                            <div key={i} className="flex items-center gap-4 p-3 hover:bg-slate-50 rounded-xl transition-colors border border-transparent hover:border-slate-100">
+                              <div className="font-mono font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg text-sm">{appt.time || '14:00'}</div>
+                              <div>
+                                <p className="font-bold text-slate-900">{users.find(u => u.uid === appt.patientId)?.name || 'Paciente'}</p>
+                                <p className="text-xs text-slate-500 font-medium uppercase">{appt.type || 'Consulta de Rotina'}</p>
+                              </div>
+                            </div>
+                          )) : (
+                            <p className="text-slate-500 text-sm">Nenhum compromisso para hoje.</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === 'messages' && (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 h-[calc(100vh-140px)] md:h-[600px] gap-6 animate-in fade-in duration-500">
+                      {/* List (Hidden on mobile if chat selected) */}
+                      <div className={`${STYLES.card} ${selectedChatUser ? 'hidden lg:flex' : 'flex'} col-span-1 overflow-hidden flex-col`}>
+                        <div className="p-5 border-b border-slate-100 bg-slate-50 font-bold text-slate-700 text-lg">Conversas</div>
+                        <div className="overflow-y-auto flex-1 p-2">
+                          {myPatients.map(p => (
+                            <button
+                              key={p.id}
+                              onClick={() => setSelectedChatUser(p.id)}
+                              className={`w-full p-4 text-left rounded-xl flex items-center gap-4 transition-all mb-1 ${selectedChatUser === p.id ? 'bg-indigo-50 ring-1 ring-indigo-200 shadow-sm' : 'hover:bg-slate-50'}`}
+                            >
+                              <Avatar
+                                name={p.name}
+                                size="md"
+                                className={selectedChatUser === p.id ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-600'}
+                              />
+                              <span className={`font-bold ${selectedChatUser === p.id ? 'text-indigo-900' : 'text-slate-700'}`}>{p.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Chat Area (Full width on mobile when selected) */}
+                      <div className={`${selectedChatUser ? 'flex' : 'hidden lg:flex'} col-span-1 lg:col-span-2 h-full flex-col`}>
+                        {selectedChatUser ? (
+                          <div className="h-full flex flex-col">
+                            <button onClick={() => setSelectedChatUser(null)} className="lg:hidden mb-4 text-sm text-indigo-600 font-bold flex items-center gap-1 bg-white p-2 rounded-lg w-fit shadow-sm"><ArrowLeft size={16} /> Voltar</button>
+                            <ChatSystem currentUser={user} targetId={selectedChatUser} users={allUsers} />
+                          </div>
+                        ) : (
+                          <div className={`${STYLES.card} h-full flex flex-col items-center justify-center text-slate-400 gap-4`}>
+                            <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center">
+                              <MessageSquare size={32} />
+                            </div>
+                            <p className="font-medium">Selecione um paciente para iniciar o chat</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -1338,6 +1569,14 @@ export default function HealthHub() {
 
 // --- WORKOUT BUILDER ---
 function WorkoutBuilder({ onCreate }) {
+  const PRESET_EXERCISES = [
+    "Lat Pulldown (Reverse Grip)",
+    "Seated Cable Row",
+    "Dumbbell Bench Press",
+    "Leg Press",
+    "Shoulder Press"
+  ];
+
   const [title, setTitle] = useState('');
   const [exercises, setExercises] = useState([]);
   const [currentEx, setCurrentEx] = useState({ name: '', sets: 3, reps: 10, weight: 0 });
@@ -1369,11 +1608,33 @@ function WorkoutBuilder({ onCreate }) {
         <div className="border-t border-slate-100 pt-6">
           <h3 className="font-bold text-slate-800 mb-4">Adicionar Exercício</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <input type="text" className={STYLES.input} placeholder="Nome do Exercício" value={currentEx.name} onChange={e => setCurrentEx({ ...currentEx, name: e.target.value })} />
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-400 uppercase">Exercício</label>
+              <input
+                type="text"
+                list="exercises-list"
+                className={STYLES.input}
+                placeholder="Nome do Exercício"
+                value={currentEx.name}
+                onChange={e => setCurrentEx({ ...currentEx, name: e.target.value })}
+              />
+              <datalist id="exercises-list">
+                {PRESET_EXERCISES.map(ex => <option key={ex} value={ex} />)}
+              </datalist>
+            </div>
             <div className="grid grid-cols-3 gap-2">
-              <input type="number" className={STYLES.input + ' text-center'} placeholder="Séries" value={currentEx.sets} onChange={e => setCurrentEx({ ...currentEx, sets: parseInt(e.target.value) })} />
-              <input type="number" className={STYLES.input + ' text-center'} placeholder="Reps" value={currentEx.reps} onChange={e => setCurrentEx({ ...currentEx, reps: parseInt(e.target.value) })} />
-              <input type="number" className={STYLES.input + ' text-center'} placeholder="Carga" value={currentEx.weight} onChange={e => setCurrentEx({ ...currentEx, weight: parseInt(e.target.value) })} />
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase text-center block">Séries</label>
+                <input type="number" className={STYLES.input + ' text-center'} placeholder="3" value={currentEx.sets} onChange={e => setCurrentEx({ ...currentEx, sets: parseInt(e.target.value) })} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase text-center block">Reps</label>
+                <input type="number" className={STYLES.input + ' text-center'} placeholder="12" value={currentEx.reps} onChange={e => setCurrentEx({ ...currentEx, reps: parseInt(e.target.value) })} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase text-center block">Kg</label>
+                <input type="number" className={STYLES.input + ' text-center'} placeholder="0" value={currentEx.weight} onChange={e => setCurrentEx({ ...currentEx, weight: parseInt(e.target.value) })} />
+              </div>
             </div>
           </div>
           <button onClick={addExercise} className="bg-slate-100 text-slate-700 font-bold text-sm flex items-center justify-center gap-2 hover:bg-indigo-50 hover:text-indigo-600 p-3 rounded-xl w-full transition-colors border-2 border-dashed border-slate-200 hover:border-indigo-300">
