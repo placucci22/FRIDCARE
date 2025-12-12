@@ -1426,346 +1426,346 @@ export default function HealthHub() {
             </div>
           </div>
         </div>
-      </div>
-      <AppointmentModal 
-        isOpen={showApptModal} 
-        onClose={() => setShowApptModal(false)} 
-        onSave={handleSaveAppt} 
-        users={allUsers}
-        initialData={apptModalData}
-      />
-      <DayDetailModal 
-        isOpen={showDayModal} 
-        onClose={() => setShowDayModal(false)} 
-        date={apptModalData?.date} 
-        appointments={appointments}
-        users={allUsers}
-      />
-    </div >
-  );
-};
-// Patient
-const PatientView = () => {
-  const [tab, setTab] = useState('home');
-  const proUsers = allUsers.filter(u => u.role === 'professional');
 
-  const handleStartWorkout = (plan, day) => {
-    setActiveWorkout({
-      id: `${plan.id}_${day.id}`,
-      title: `${plan.title} - ${day.title}`,
-      exercises: day.exercises
-    });
+        <AppointmentModal
+          isOpen={showApptModal}
+          onClose={() => setShowApptModal(false)}
+          onSave={handleSaveAppt}
+          users={allUsers}
+          initialData={apptModalData}
+        />
+        <DayDetailModal
+          isOpen={showDayModal}
+          onClose={() => setShowDayModal(false)}
+          date={apptModalData?.date}
+          appointments={appointments}
+          users={allUsers}
+        />
+      </div >
+    );
   };
+  // Patient
+  const PatientView = () => {
+    const [tab, setTab] = useState('home');
+    const proUsers = allUsers.filter(u => u.role === 'professional');
 
-  return (
-    <div className="min-h-screen bg-slate-100 pb-24 md:pb-0 font-sans">
-      {/* Mobile Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-10 px-6 py-4 flex justify-between items-center md:hidden">
-        <div className="font-extrabold text-xl text-indigo-600 flex items-center gap-2"><Activity size={20} /> Fridman</div>
-        <button onClick={handleLogout} className="text-slate-400 hover:text-red-500"><LogOut size={24} /></button>
-      </header>
+    const handleStartWorkout = (plan, day) => {
+      setActiveWorkout({
+        id: `${plan.id}_${day.id}`,
+        title: `${plan.title} - ${day.title}`,
+        exercises: day.exercises
+      });
+    };
 
-      <div className="flex min-h-screen">
-        <div className="hidden md:flex flex-col w-72 bg-white border-r border-slate-200 fixed h-full z-20 shadow-xl">
-          <div className="p-8 text-2xl font-extrabold text-slate-800 flex items-center gap-2">
-            <Activity className="text-indigo-600" size={32} /> Fridman
-          </div>
-          <nav className="flex-1 space-y-2 p-6">
-            {[
-              { id: 'home', label: 'Início', icon: Activity },
-              { id: 'training', label: 'Meus Treinos', icon: Dumbbell },
-              { id: 'diet', label: 'Nutrição', icon: FileText },
-              { id: 'messages', label: 'Contato Pro', icon: MessageSquare }
-            ].map(t => (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                className={`w-full text-left px-5 py-4 rounded-xl font-bold flex items-center gap-3 transition-all ${tab === t.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
-              >
-                <t.icon size={20} /> {t.label}
+    return (
+      <div className="min-h-screen bg-slate-100 pb-24 md:pb-0 font-sans">
+        {/* Mobile Header */}
+        <header className="bg-white shadow-sm sticky top-0 z-10 px-6 py-4 flex justify-between items-center md:hidden">
+          <div className="font-extrabold text-xl text-indigo-600 flex items-center gap-2"><Activity size={20} /> Fridman</div>
+          <button onClick={handleLogout} className="text-slate-400 hover:text-red-500"><LogOut size={24} /></button>
+        </header>
+
+        <div className="flex min-h-screen">
+          <div className="hidden md:flex flex-col w-72 bg-white border-r border-slate-200 fixed h-full z-20 shadow-xl">
+            <div className="p-8 text-2xl font-extrabold text-slate-800 flex items-center gap-2">
+              <Activity className="text-indigo-600" size={32} /> Fridman
+            </div>
+            <nav className="flex-1 space-y-2 p-6">
+              {[
+                { id: 'home', label: 'Início', icon: Activity },
+                { id: 'training', label: 'Meus Treinos', icon: Dumbbell },
+                { id: 'diet', label: 'Nutrição', icon: FileText },
+                { id: 'messages', label: 'Contato Pro', icon: MessageSquare }
+              ].map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => setTab(t.id)}
+                  className={`w-full text-left px-5 py-4 rounded-xl font-bold flex items-center gap-3 transition-all ${tab === t.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
+                >
+                  <t.icon size={20} /> {t.label}
+                </button>
+              ))}
+            </nav>
+            <div className="p-6 border-t border-slate-100">
+              <button onClick={handleLogout} className="text-red-500 font-bold text-sm hover:bg-red-50 w-full p-3 rounded-xl flex items-center gap-2 transition-colors">
+                <LogOut size={18} /> Sair do Sistema
               </button>
-            ))}
-          </nav>
-          <div className="p-6 border-t border-slate-100">
-            <button onClick={handleLogout} className="text-red-500 font-bold text-sm hover:bg-red-50 w-full p-3 rounded-xl flex items-center gap-2 transition-colors">
-              <LogOut size={18} /> Sair do Sistema
-            </button>
+            </div>
           </div>
-        </div>
 
-        <main className="flex-1 md:ml-72 p-6 md:p-10 max-w-5xl mx-auto w-full">
+          <main className="flex-1 md:ml-72 p-6 md:p-10 max-w-5xl mx-auto w-full">
 
-          {tab === 'home' && (
-            <div className="space-y-8 animate-in fade-in duration-500">
-              <div className="flex justify-between items-center">
+            {tab === 'home' && (
+              <div className="space-y-8 animate-in fade-in duration-500">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900">Olá, {userData.name.split(' ')[0]} 👋</h1>
+                    <p className="text-slate-500 font-medium mt-1">Hoje é um ótimo dia para evoluir.</p>
+                  </div>
+                  <div className="hidden md:block">
+                    <Avatar name={userData.name} size="lg" className="border-2 border-indigo-200" />
+                  </div>
+                </div>
+
+                <div className={`${STYLES.card} p-6 md:p-8 bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-xl shadow-indigo-200 border-none relative overflow-hidden`}>
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full -mr-20 -mt-20 blur-2xl"></div>
+                  <div className="relative z-10">
+                    <div className="flex justify-between items-center mb-6">
+                      <h3 className="font-bold text-indigo-100 text-lg">Seu Progresso Corporal</h3>
+                      <Activity className="text-white/80" />
+                    </div>
+                    <div className="flex items-end gap-3 mb-4">
+                      <span className="text-4xl md:text-5xl font-extrabold tracking-tight">14.2%</span>
+                      <span className="text-base text-indigo-200 mb-2 font-medium">Gordura Corporal</span>
+                    </div>
+                    <div className="h-3 w-full bg-black/20 rounded-full overflow-hidden backdrop-blur-sm">
+                      <div className="h-full bg-white w-[70%] rounded-full shadow-lg"></div>
+                    </div>
+                    <p className="text-sm text-indigo-100 mt-4 font-medium flex items-center gap-2">
+                      <TrendingUp size={16} /> Queda de 1.5% comparado ao último mês. Excelente!
+                    </p>
+                  </div>
+                </div>
+
                 <div>
-                  <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900">Olá, {userData.name.split(' ')[0]} 👋</h1>
-                  <p className="text-slate-500 font-medium mt-1">Hoje é um ótimo dia para evoluir.</p>
-                </div>
-                <div className="hidden md:block">
-                  <Avatar name={userData.name} size="lg" className="border-2 border-indigo-200" />
-                </div>
-              </div>
+                  <h2 className={`${STYLES.h2} mb-4`}>Próximo Treino</h2>
+                  {workouts.length > 0 ? (
+                    workouts.slice(0, 1).map(plan => {
+                      const nextDay = plan.days?.[0]; // Start with first day for now
+                      if (!nextDay) return null;
 
-              <div className={`${STYLES.card} p-6 md:p-8 bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-xl shadow-indigo-200 border-none relative overflow-hidden`}>
-                <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full -mr-20 -mt-20 blur-2xl"></div>
-                <div className="relative z-10">
-                  <div className="flex justify-between items-center mb-6">
-                    <h3 className="font-bold text-indigo-100 text-lg">Seu Progresso Corporal</h3>
-                    <Activity className="text-white/80" />
-                  </div>
-                  <div className="flex items-end gap-3 mb-4">
-                    <span className="text-4xl md:text-5xl font-extrabold tracking-tight">14.2%</span>
-                    <span className="text-base text-indigo-200 mb-2 font-medium">Gordura Corporal</span>
-                  </div>
-                  <div className="h-3 w-full bg-black/20 rounded-full overflow-hidden backdrop-blur-sm">
-                    <div className="h-full bg-white w-[70%] rounded-full shadow-lg"></div>
-                  </div>
-                  <p className="text-sm text-indigo-100 mt-4 font-medium flex items-center gap-2">
-                    <TrendingUp size={16} /> Queda de 1.5% comparado ao último mês. Excelente!
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <h2 className={`${STYLES.h2} mb-4`}>Próximo Treino</h2>
-                {workouts.length > 0 ? (
-                  workouts.slice(0, 1).map(plan => {
-                    const nextDay = plan.days?.[0]; // Start with first day for now
-                    if (!nextDay) return null;
-
-                    return (
-                      <div key={plan.id} className={`${STYLES.card} p-0 flex flex-col md:flex-row group`}>
-                        <div className="h-48 md:h-auto md:w-48 bg-slate-200 object-cover relative flex items-center justify-center">
-                          <div className="absolute inset-0 bg-indigo-900/10 group-hover:bg-indigo-900/0 transition-colors"></div>
-                          <Dumbbell size={48} className="text-slate-400" />
-                        </div>
-                        <div className="p-6 md:p-8 flex-1 flex flex-col justify-center">
-                          <div className="flex justify-between items-start mb-2">
-                            <div>
-                              <h3 className="font-extrabold text-xl md:text-2xl text-slate-800">{plan.title}</h3>
-                              <p className="text-indigo-600 font-bold text-sm">{nextDay.title}</p>
-                            </div>
-                            <span className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">Fase 1</span>
+                      return (
+                        <div key={plan.id} className={`${STYLES.card} p-0 flex flex-col md:flex-row group`}>
+                          <div className="h-48 md:h-auto md:w-48 bg-slate-200 object-cover relative flex items-center justify-center">
+                            <div className="absolute inset-0 bg-indigo-900/10 group-hover:bg-indigo-900/0 transition-colors"></div>
+                            <Dumbbell size={48} className="text-slate-400" />
                           </div>
-                          <p className="text-slate-500 mb-6 font-medium">{nextDay.exercises.length} Exercícios • Duração Est. 45 min</p>
-                          <button
-                            onClick={() => handleStartWorkout(plan, nextDay)}
-                            className={`${STYLES.btnPrimary} w-full md:w-auto self-start`}
-                          >
-                            <Play size={20} fill="currentColor" /> Iniciar Sessão
-                          </button>
+                          <div className="p-6 md:p-8 flex-1 flex flex-col justify-center">
+                            <div className="flex justify-between items-start mb-2">
+                              <div>
+                                <h3 className="font-extrabold text-xl md:text-2xl text-slate-800">{plan.title}</h3>
+                                <p className="text-indigo-600 font-bold text-sm">{nextDay.title}</p>
+                              </div>
+                              <span className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">Fase 1</span>
+                            </div>
+                            <p className="text-slate-500 mb-6 font-medium">{nextDay.exercises.length} Exercícios • Duração Est. 45 min</p>
+                            <button
+                              onClick={() => handleStartWorkout(plan, nextDay)}
+                              className={`${STYLES.btnPrimary} w-full md:w-auto self-start`}
+                            >
+                              <Play size={20} fill="currentColor" /> Iniciar Sessão
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className={`${STYLES.card} p-8 text-center text-slate-500`}>Nenhum treino atribuído ainda.</div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {tab === 'training' && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <h2 className={STYLES.h1}>Seus Treinos</h2>
+                <div className="grid grid-cols-1 gap-6">
+                  {workouts.map(plan => (
+                    <div key={plan.id} className={`${STYLES.card} p-6 border-l-8 border-l-indigo-600`}>
+                      <div className="flex items-center gap-4 mb-6">
+                        <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
+                          <Dumbbell size={24} />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-xl text-slate-900">{plan.title}</h3>
+                          <p className="text-sm text-slate-500 font-medium">{plan.days?.length || 0} dias de treino</p>
                         </div>
                       </div>
-                    );
-                  })
-                ) : (
-                  <div className={`${STYLES.card} p-8 text-center text-slate-500`}>Nenhum treino atribuído ainda.</div>
+
+                      <div className="space-y-3">
+                        {plan.days?.map((day, idx) => (
+                          <div key={day.id} className="flex items-center justify-between p-4 rounded-xl bg-slate-50 hover:bg-white hover:shadow-md border border-transparent hover:border-indigo-100 transition-all group">
+                            <div className="flex items-center gap-4">
+                              <span className="w-8 h-8 rounded-full bg-white text-slate-500 font-bold flex items-center justify-center text-xs border border-slate-200 group-hover:border-indigo-200 group-hover:text-indigo-600">{idx + 1}</span>
+                              <div>
+                                <h4 className="font-bold text-slate-800">{day.title}</h4>
+                                <p className="text-xs text-slate-500">{day.exercises.length} exercícios</p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => handleStartWorkout(plan, day)}
+                              className="text-indigo-600 font-bold text-sm bg-white px-4 py-2 rounded-lg shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-colors"
+                            >
+                              Iniciar
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <h2 className={`${STYLES.h1} mt-12`}>Histórico de Treinos</h2>
+                {myLogs.length === 0 ? <p className="text-slate-500 text-sm font-medium italic">Nenhum treino registrado.</p> : (
+                  <div className="space-y-4">
+                    {myLogs.map(log => (
+                      <div key={log.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center hover:shadow-md transition-shadow">
+                        <div>
+                          <h4 className="font-bold text-slate-800 text-lg">{log.title}</h4>
+                          <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">{formatDate(log.date)}</span>
+                        </div>
+                        <div className="flex gap-6 text-sm text-slate-600 font-medium">
+                          <span className="flex items-center gap-1"><Clock size={16} className="text-indigo-500" /> {Math.floor(log.duration / 60)}min</span>
+                          <span className="flex items-center gap-1"><Dumbbell size={16} className="text-indigo-500" /> {log.totalVolume}kg</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
-            </div>
-          )}
+            )}
 
-          {tab === 'training' && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <h2 className={STYLES.h1}>Seus Treinos</h2>
-              <div className="grid grid-cols-1 gap-6">
-                {workouts.map(plan => (
-                  <div key={plan.id} className={`${STYLES.card} p-6 border-l-8 border-l-indigo-600`}>
-                    <div className="flex items-center gap-4 mb-6">
-                      <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
-                        <Dumbbell size={24} />
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-xl text-slate-900">{plan.title}</h3>
-                        <p className="text-sm text-slate-500 font-medium">{plan.days?.length || 0} dias de treino</p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      {plan.days?.map((day, idx) => (
-                        <div key={day.id} className="flex items-center justify-between p-4 rounded-xl bg-slate-50 hover:bg-white hover:shadow-md border border-transparent hover:border-indigo-100 transition-all group">
-                          <div className="flex items-center gap-4">
-                            <span className="w-8 h-8 rounded-full bg-white text-slate-500 font-bold flex items-center justify-center text-xs border border-slate-200 group-hover:border-indigo-200 group-hover:text-indigo-600">{idx + 1}</span>
-                            <div>
-                              <h4 className="font-bold text-slate-800">{day.title}</h4>
-                              <p className="text-xs text-slate-500">{day.exercises.length} exercícios</p>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => handleStartWorkout(plan, day)}
-                            className="text-indigo-600 font-bold text-sm bg-white px-4 py-2 rounded-lg shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-colors"
-                          >
-                            Iniciar
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+            {tab === 'diet' && (
+              <div className="space-y-6 animate-in fade-in duration-500">
+                <h2 className={STYLES.h1}>Nutrição e Dieta</h2>
+                <div className={`${STYLES.card} p-10 flex flex-col items-center justify-center text-center space-y-6 border-2 border-dashed border-slate-200`}>
+                  <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center text-green-600 shadow-sm">
+                    <FileText size={40} />
                   </div>
-                ))}
-              </div>
-
-              <h2 className={`${STYLES.h1} mt-12`}>Histórico de Treinos</h2>
-              {myLogs.length === 0 ? <p className="text-slate-500 text-sm font-medium italic">Nenhum treino registrado.</p> : (
-                <div className="space-y-4">
-                  {myLogs.map(log => (
-                    <div key={log.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center hover:shadow-md transition-shadow">
-                      <div>
-                        <h4 className="font-bold text-slate-800 text-lg">{log.title}</h4>
-                        <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">{formatDate(log.date)}</span>
-                      </div>
-                      <div className="flex gap-6 text-sm text-slate-600 font-medium">
-                        <span className="flex items-center gap-1"><Clock size={16} className="text-indigo-500" /> {Math.floor(log.duration / 60)}min</span>
-                        <span className="flex items-center gap-1"><Dumbbell size={16} className="text-indigo-500" /> {log.totalVolume}kg</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {tab === 'diet' && (
-            <div className="space-y-6 animate-in fade-in duration-500">
-              <h2 className={STYLES.h1}>Nutrição e Dieta</h2>
-              <div className={`${STYLES.card} p-10 flex flex-col items-center justify-center text-center space-y-6 border-2 border-dashed border-slate-200`}>
-                <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center text-green-600 shadow-sm">
-                  <FileText size={40} />
-                </div>
-                <div>
-                  <h3 className="font-bold text-xl text-slate-900">Plano Alimentar Atual</h3>
-                  <p className="text-slate-500 text-sm mt-1">Atualizado por Dr. Fridman em 01/12/2025</p>
-                </div>
-                <button className={STYLES.btnSecondary}>
-                  Baixar PDF da Dieta
-                </button>
-              </div>
-
-              <div className={`${STYLES.card} p-8`}>
-                <div className="flex justify-between items-center mb-6">
                   <div>
-                    <h3 className="font-bold text-slate-900 text-lg">{SAMPLE_DIET.title}</h3>
-                    <p className="text-sm text-slate-500 font-medium">{SAMPLE_DIET.calories} kcal • Objetivo: Cutting</p>
+                    <h3 className="font-bold text-xl text-slate-900">Plano Alimentar Atual</h3>
+                    <p className="text-slate-500 text-sm mt-1">Atualizado por Dr. Fridman em 01/12/2025</p>
                   </div>
-                  <div className="bg-green-100 text-green-700 px-3 py-1 rounded-lg text-xs font-bold uppercase">Ativa</div>
+                  <button className={STYLES.btnSecondary}>
+                    Baixar PDF da Dieta
+                  </button>
                 </div>
 
-                <div className="space-y-6">
-                  {SAMPLE_DIET.meals.map((meal, idx) => (
-                    <div key={idx} className="flex gap-4">
-                      <div className="w-16 pt-1 text-right text-sm font-bold text-slate-400">{meal.time}</div>
-                      <div className="flex-1 pb-6 border-l-2 border-slate-100 pl-6 relative">
-                        <div className="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-indigo-100 border-2 border-white ring-1 ring-indigo-200"></div>
-                        <h4 className="font-bold text-slate-800 mb-2">{meal.name}</h4>
-                        <ul className="space-y-1">
-                          {meal.items.map((item, i) => (
-                            <li key={i} className="text-sm text-slate-600 flex items-center gap-2">
-                              <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                              {item}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
+                <div className={`${STYLES.card} p-8`}>
+                  <div className="flex justify-between items-center mb-6">
+                    <div>
+                      <h3 className="font-bold text-slate-900 text-lg">{SAMPLE_DIET.title}</h3>
+                      <p className="text-sm text-slate-500 font-medium">{SAMPLE_DIET.calories} kcal • Objetivo: Cutting</p>
                     </div>
-                  ))}
+                    <div className="bg-green-100 text-green-700 px-3 py-1 rounded-lg text-xs font-bold uppercase">Ativa</div>
+                  </div>
+
+                  <div className="space-y-6">
+                    {SAMPLE_DIET.meals.map((meal, idx) => (
+                      <div key={idx} className="flex gap-4">
+                        <div className="w-16 pt-1 text-right text-sm font-bold text-slate-400">{meal.time}</div>
+                        <div className="flex-1 pb-6 border-l-2 border-slate-100 pl-6 relative">
+                          <div className="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-indigo-100 border-2 border-white ring-1 ring-indigo-200"></div>
+                          <h4 className="font-bold text-slate-800 mb-2">{meal.name}</h4>
+                          <ul className="space-y-1">
+                            {meal.items.map((item, i) => (
+                              <li key={i} className="text-sm text-slate-600 flex items-center gap-2">
+                                <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
+                                {item}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {tab === 'messages' && (
-            <div className="h-[calc(100vh-140px)] md:h-[600px] animate-in fade-in duration-500">
-              {selectedChatUser ? (
-                <div className="h-full flex flex-col">
-                  <button onClick={() => setSelectedChatUser(null)} className="md:hidden mb-4 text-sm text-indigo-600 font-bold flex items-center bg-indigo-50 w-fit px-3 py-1 rounded-full"><ChevronDown className="rotate-90" /> Voltar</button>
-                  <ChatSystem currentUser={user} targetId={selectedChatUser} users={allUsers} />
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  <h2 className={STYLES.h1}>Seus Profissionais</h2>
-                  {proUsers.length === 0 && <p className="text-slate-500 italic">Nenhum profissional disponível.</p>}
-                  {proUsers.map(p => (
-                    <div key={p.id} onClick={() => setSelectedChatUser(p.id)} className={`${STYLES.card} p-6 flex items-center gap-6 cursor-pointer hover:border-indigo-400 hover:shadow-md transition-all`}>
-                      <Avatar name={p.name} size="xl" className="rounded-2xl shadow-sm" />
-                      <div className="flex-1">
-                        <h3 className="font-bold text-lg text-slate-900">{p.name}</h3>
-                        <p className="text-sm text-slate-500 font-medium">Toque para enviar mensagem</p>
+            {tab === 'messages' && (
+              <div className="h-[calc(100vh-140px)] md:h-[600px] animate-in fade-in duration-500">
+                {selectedChatUser ? (
+                  <div className="h-full flex flex-col">
+                    <button onClick={() => setSelectedChatUser(null)} className="md:hidden mb-4 text-sm text-indigo-600 font-bold flex items-center bg-indigo-50 w-fit px-3 py-1 rounded-full"><ChevronDown className="rotate-90" /> Voltar</button>
+                    <ChatSystem currentUser={user} targetId={selectedChatUser} users={allUsers} />
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <h2 className={STYLES.h1}>Seus Profissionais</h2>
+                    {proUsers.length === 0 && <p className="text-slate-500 italic">Nenhum profissional disponível.</p>}
+                    {proUsers.map(p => (
+                      <div key={p.id} onClick={() => setSelectedChatUser(p.id)} className={`${STYLES.card} p-6 flex items-center gap-6 cursor-pointer hover:border-indigo-400 hover:shadow-md transition-all`}>
+                        <Avatar name={p.name} size="xl" className="rounded-2xl shadow-sm" />
+                        <div className="flex-1">
+                          <h3 className="font-bold text-lg text-slate-900">{p.name}</h3>
+                          <p className="text-sm text-slate-500 font-medium">Toque para enviar mensagem</p>
+                        </div>
+                        <div className="bg-slate-50 p-3 rounded-full text-slate-400">
+                          <MessageSquare size={24} />
+                        </div>
                       </div>
-                      <div className="bg-slate-50 p-3 rounded-full text-slate-400">
-                        <MessageSquare size={24} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
-        </main>
+          </main>
+        </div>
+
+        {/* Mobile Bottom Nav */}
+        <nav className="fixed bottom-0 w-full bg-white/90 backdrop-blur-md border-t border-slate-200 flex justify-around py-4 pb-safe md:hidden z-30 shadow-lg">
+          <button onClick={() => setTab('home')} className={`flex flex-col items-center gap-1 ${tab === 'home' ? 'text-indigo-600' : 'text-slate-400'}`}>
+            <Activity size={24} strokeWidth={tab === 'home' ? 2.5 : 2} />
+            <span className="text-[10px] font-bold">Início</span>
+          </button>
+          <button onClick={() => setTab('training')} className={`flex flex-col items-center gap-1 ${tab === 'training' ? 'text-indigo-600' : 'text-slate-400'}`}>
+            <Dumbbell size={24} strokeWidth={tab === 'training' ? 2.5 : 2} />
+            <span className="text-[10px] font-bold">Treino</span>
+          </button>
+          <button onClick={() => setTab('diet')} className={`flex flex-col items-center gap-1 ${tab === 'diet' ? 'text-indigo-600' : 'text-slate-400'}`}>
+            <FileText size={24} strokeWidth={tab === 'diet' ? 2.5 : 2} />
+            <span className="text-[10px] font-bold">Dieta</span>
+          </button>
+          <button onClick={() => setTab('messages')} className={`flex flex-col items-center gap-1 ${tab === 'messages' ? 'text-indigo-600' : 'text-slate-400'}`}>
+            <MessageSquare size={24} strokeWidth={tab === 'messages' ? 2.5 : 2} />
+            <span className="text-[10px] font-bold">Chat</span>
+          </button>
+        </nav>
       </div>
+    );
+  };
 
-      {/* Mobile Bottom Nav */}
-      <nav className="fixed bottom-0 w-full bg-white/90 backdrop-blur-md border-t border-slate-200 flex justify-around py-4 pb-safe md:hidden z-30 shadow-lg">
-        <button onClick={() => setTab('home')} className={`flex flex-col items-center gap-1 ${tab === 'home' ? 'text-indigo-600' : 'text-slate-400'}`}>
-          <Activity size={24} strokeWidth={tab === 'home' ? 2.5 : 2} />
-          <span className="text-[10px] font-bold">Início</span>
-        </button>
-        <button onClick={() => setTab('training')} className={`flex flex-col items-center gap-1 ${tab === 'training' ? 'text-indigo-600' : 'text-slate-400'}`}>
-          <Dumbbell size={24} strokeWidth={tab === 'training' ? 2.5 : 2} />
-          <span className="text-[10px] font-bold">Treino</span>
-        </button>
-        <button onClick={() => setTab('diet')} className={`flex flex-col items-center gap-1 ${tab === 'diet' ? 'text-indigo-600' : 'text-slate-400'}`}>
-          <FileText size={24} strokeWidth={tab === 'diet' ? 2.5 : 2} />
-          <span className="text-[10px] font-bold">Dieta</span>
-        </button>
-        <button onClick={() => setTab('messages')} className={`flex flex-col items-center gap-1 ${tab === 'messages' ? 'text-indigo-600' : 'text-slate-400'}`}>
-          <MessageSquare size={24} strokeWidth={tab === 'messages' ? 2.5 : 2} />
-          <span className="text-[10px] font-bold">Chat</span>
-        </button>
-      </nav>
+  if (loading) return (
+    <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-50 text-indigo-600 gap-4">
+      <div className="w-16 h-16 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+      <p className="font-bold text-lg animate-pulse">Carregando Fridman Care...</p>
     </div>
   );
-};
 
-if (loading) return (
-  <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-50 text-indigo-600 gap-4">
-    <div className="w-16 h-16 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
-    <p className="font-bold text-lg animate-pulse">Carregando Fridman Care...</p>
-  </div>
-);
+  if ((!user || !userData)) {
+    // Show Auth Screen if no user (both Bypass and Real)
+    // Handle Bypass Mock Login
+    const handleMockLogin = (role) => {
+      const mockUser = MOCK_USERS[role];
+      if (mockUser) {
+        setUser({ uid: mockUser.uid });
+        setUserData(mockUser);
+        setActiveRole(role);
+      }
+    };
+    return <AuthScreen onLogin={BYPASS_AUTH ? handleMockLogin : () => { }} isBypass={BYPASS_AUTH} />;
+  }
 
-if ((!user || !userData)) {
-  // Show Auth Screen if no user (both Bypass and Real)
-  // Handle Bypass Mock Login
-  const handleMockLogin = (role) => {
-    const mockUser = MOCK_USERS[role];
-    if (mockUser) {
-      setUser({ uid: mockUser.uid });
-      setUserData(mockUser);
-      setActiveRole(role);
-    }
-  };
-  return <AuthScreen onLogin={BYPASS_AUTH ? handleMockLogin : () => { }} isBypass={BYPASS_AUTH} />;
-}
+  // Render content
+  let content = null;
+  if (activeWorkout) {
+    content = <ActiveWorkout workout={activeWorkout} onClose={() => setActiveWorkout(null)} onFinish={saveWorkoutLog} />;
+  } else if (userData?.role === 'admin') {
+    content = <AdminView />;
+  } else if (userData?.role === 'professional') {
+    content = <ProfessionalView />;
+  } else {
+    content = <PatientView />;
+  }
 
-// Render content
-let content = null;
-if (activeWorkout) {
-  content = <ActiveWorkout workout={activeWorkout} onClose={() => setActiveWorkout(null)} onFinish={saveWorkoutLog} />;
-} else if (userData?.role === 'admin') {
-  content = <AdminView />;
-} else if (userData?.role === 'professional') {
-  content = <ProfessionalView />;
-} else {
-  content = <PatientView />;
-}
-
-return (
-  <>
-    {content}
-    {BYPASS_AUTH && <DevRoleSwitcher onSwitch={switchRole} currentRole={activeRole} />}
-  </>
-);
+  return (
+    <>
+      {content}
+      {BYPASS_AUTH && <DevRoleSwitcher onSwitch={switchRole} currentRole={activeRole} />}
+    </>
+  );
 }
 
 // --- WORKOUT BUILDER ---
@@ -1926,4 +1926,3 @@ function WorkoutBuilder({ onCreate }) {
     </div>
   );
 }
-```
